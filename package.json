@@ -1,0 +1,49 @@
+{
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "prebuild": "node scripts/build-library-css.mjs",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "build:library-css": "node scripts/build-library-css.mjs",
+    "test:library": "node --test tests/library-model.test.ts tests/library-trakt.test.ts tests/library-database.test.mjs tests/library-artwork.test.ts tests/config.test.ts",
+    "test:library:e2e": "playwright test --config playwright.library.config.mjs",
+    "test": "npm run test:library",
+    "check:release": "node scripts/check-release.mjs"
+  },
+  "dependencies": {
+    "@radix-ui/react-select": "2.3.8",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.117.3",
+    "next": "16.3.8",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.2.0",
+    "@types/react": "19.2.18",
+    "axe-core": "4.14.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.8",
+    "typescript": "6.0.3",
+    "postcss": "8.5.23"
+  },
+  "name": "tastelog",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Your taste, logged. A self-hosted library for movies, TV, anime and games.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/8valet/tastelog.git"
+  }
+}
