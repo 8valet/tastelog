@@ -4,7 +4,9 @@ Your taste, logged. A self-hosted personal library for movies, TV, anime, and ga
 
 Keep a collection, rate titles with half stars, write a diary, organize lists, and pick your next watch or play from your backlog. Each installation belongs to one owner; visitors see only the titles, diary entries, and lists you choose to publish.
 
-![Tastelog overview with fictional test titles](docs/screenshots/overview.png)
+![Tastelog collection featuring sample titles from movies, anime, and games](docs/screenshots/overview.png)
+
+[Watch the short demo](docs/demo.gif) · [WebM recording](docs/demo.webm)
 
 ## Features
 
@@ -20,7 +22,7 @@ Keep a collection, rate titles with half stars, write a diary, organize lists, a
 - Owner login through Supabase, with separate private and public database documents.
 - Keyboard controls, reduced motion, and responsive phone layouts.
 
-Installs start empty. No real collection, account, API credentials, or personal poster mappings are included. Screenshots use fictional test data and original placeholder artwork.
+Installs start empty. No real collection, account, API credentials, or personal poster mappings are included. The screenshots and demo use a disposable local account with three recognizable sample titles; the ratings and backlog statuses are illustrative. Their artwork is loaded from the relevant catalog image services and is not included in the MIT license.
 
 ## Quick start
 
@@ -52,7 +54,7 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000). The home route opens `/library`; sign in at `/admin/library`. Without database settings, the app shows setup instructions and does not save data.
 
-![Pick for me roulette using fictional titles](docs/screenshots/roulette.png)
+![Pick for me roulette with sample movie, anime, and game covers](docs/screenshots/roulette.png)
 
 ## Configuration
 
@@ -90,6 +92,8 @@ npm run check:release        # Scan tracked release files for excluded material
 
 The browser fixture runs its own synthetic authentication service and PGlite database. It never connects to your Supabase project or live catalog APIs. Test credentials are deliberately fake and are used only by the separate test process. Test results do not prove live provider availability or email delivery.
 
+Regenerate the public demo media with `node scripts/record-demo.mjs`. It starts the same isolated local service, signs in with disposable test credentials, and uses a temporary database. The browser fetches the sample covers from their catalog image hosts; no live account or provider API keys are used.
+
 Edit `app/(en)/library/library-base.css` and `library-additions.css` for styling. `npm run build:library-css` compiles them into `library.css`; production builds run it automatically. The `(en)` route group organizes files and does not appear in URLs.
 
 ## Scope
@@ -100,6 +104,6 @@ The state is a bounded JSONB document: up to 5,000 titles, 20,000 diary events, 
 
 ## License and credits
 
-Application code and original placeholder artwork are [MIT licensed](LICENSE), copyright 2026 [8valet](https://github.com/8valet). Third-party providers, metadata, posters, and trademarks retain their respective rights and terms; the MIT license does not grant rights to their content. The bundled Trakt logo is provider attribution artwork, not original application art. See [third-party notices](THIRD_PARTY_NOTICES.md).
+Application code is [MIT licensed](LICENSE), copyright 2026 [8valet](https://github.com/8valet). Third-party providers, metadata, posters, and trademarks retain their respective rights and terms; the MIT license does not grant rights to their content. The bundled Trakt logo is provider attribution artwork, not original application art. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Tastelog was extracted from the author's personal portfolio library into a standalone application. The public repository starts with fresh history and contains no original account configuration or records.
