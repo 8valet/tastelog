@@ -4,7 +4,7 @@ All integrations are optional. Use your own developer accounts and review each p
 
 ## Movies and TV: TMDB
 
-Register an application in [TMDB API settings](https://www.themoviedb.org/settings/api). Set `TMDB_READ_TOKEN` to the API Read Access Token (bearer token). The separate API key field is not the setting this adapter uses. Search/details provide metadata and posters, not playback. Retain the Credits attribution in Admin and follow any branding requirements for your intended use.
+Register an application in [TMDB API settings](https://www.themoviedb.org/settings/api). Set `TMDB_READ_TOKEN` to the API Read Access Token (bearer token). The separate API key field is not the setting this adapter uses. Search/details provide metadata and posters, not playback. Retain the Credits attribution in Settings and follow any branding requirements for your intended use.
 
 [TMDB authentication documentation](https://developer.themoviedb.org/docs/authentication-application)
 
@@ -30,8 +30,8 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 Save the result as `TRAKT_ENCRYPTION_KEY` on your server. Keep it stable and backed up securely; changing it makes previously stored Trakt tokens unreadable. Never put it in a public variable or commit it. This is a local encryption key, not an API credential to paste into chat.
 
-Deploy/rebuild, sign in at the exact HTTPS origin configured in the callback, and open Admin → Harbor → Trakt → Connect Trakt. The app uses S256 PKCE and encrypted server storage. It intentionally refuses localhost HTTP OAuth connections.
+Deploy/rebuild, sign in at the exact HTTPS origin configured in the callback, and open Settings → Trakt → Connect Trakt. The app uses S256 PKCE and encrypted server storage. It intentionally refuses localhost HTTP OAuth connections.
 
-Use **Check for watches**, review the titles, then select what to import. Imports are private and do not write back to Trakt. Existing manual ratings and states are preserved. TV tracking is at title level; there is no episode mapping. Harbor is one possible upstream Trakt client, not a direct integration: it must use the same Trakt account. Automatic background sync is not enabled.
+Use **Check for watches**, review the titles, then select what to import. Imports are private and do not write back to Trakt. Existing manual ratings and states are preserved. TV tracking is at title level; there is no episode mapping. This is a manual import from your Trakt account; automatic background sync is not enabled.
 
 Use your own provider accounts to verify real searches and OAuth after setup. The automated browser suite mocks external transports and does not establish live provider approval, token renewal, revocation, or email delivery.

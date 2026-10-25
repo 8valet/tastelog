@@ -46,11 +46,14 @@ export function RatingInput({ label, value, onChange }: { label: string; value: 
   const id = useId(), [hover, setHover] = useState<number | null>(null);
   const current = Number(value) || 0, displayed = hover ?? current;
   const update = (n: number) => onChange(n > 0 ? String(Math.min(5, Math.max(.5, n))) : '');
+  const scoreAt = (clientX: number, rect: DOMRect) => Math.ceil(Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) * 10) / 2;
   return <div className="rating-field"><span id={id} className="rating-label">{label}</span>
     <div className="rating-editor" role="slider" tabIndex={0} aria-labelledby={id} aria-valuemin={0} aria-valuemax={5} aria-valuenow={current} aria-valuetext={current ? `${current} out of 5 stars` : 'Unrated'}
-      onKeyDown={e => { const keys = ['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End', 'Delete', 'Backspace']; if (!keys.includes(e.key)) return; e.preventDefault(); setHover(null); update(e.key === 'End' ? 5 : ['Home', 'Delete', 'Backspace'].includes(e.key) ? 0 : current + (['ArrowRight', 'ArrowUp'].includes(e.key) ? .5 : -.5)); }} onPointerLeave={() => setHover(null)}>
-      {[1, 2, 3, 4, 5].map(n => <button type="button" tabIndex={-1} key={n} aria-label={`Rate ${n} stars`} onPointerMove={e => { if (e.pointerType === 'mouse') { const r = e.currentTarget.getBoundingClientRect(); setHover(n - (e.clientX - r.left < r.width / 2 ? .5 : 0)); } }}
-        onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const pointer = e.nativeEvent as PointerEvent; update(e.detail && pointer.pointerType === 'mouse' ? n - (e.clientX - r.left < r.width / 2 ? .5 : 0) : n); setHover(null); }}><Star fill={Math.max(0, Math.min(1, displayed - n + 1))} /></button>)}
+      onKeyDown={e => { const keys = ['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End', 'Delete', 'Backspace']; if (!keys.includes(e.key)) return; e.preventDefault(); setHover(null); update(e.key === 'End' ? 5 : ['Home', 'Delete', 'Backspace'].includes(e.key) ? 0 : current + (['ArrowRight', 'ArrowUp'].includes(e.key) ? .5 : -.5)); }}
+      onPointerMove={e => { if (e.pointerType === 'mouse') setHover(scoreAt(e.clientX, e.currentTarget.getBoundingClientRect())); }}
+      onPointerLeave={() => setHover(null)}
+      onClick={e => { if (!e.detail) return; update(scoreAt(e.clientX, e.currentTarget.getBoundingClientRect())); setHover(null); }}>
+      {[1, 2, 3, 4, 5].map(n => <span className="rating-star" key={n} aria-hidden="true"><Star fill={Math.max(0, Math.min(1, displayed - n + 1))} /></span>)}
     </div>
     <div className="rating-tools">{!current && <span className="muted">Unrated</span>}<span className="sr-only" aria-live="polite">{current ? `${current} out of 5 stars` : 'Unrated'}</span><button type="button" className="text-button" disabled={!current} aria-pressed={current % 1 === .5} onClick={() => update(current % 1 ? current + .5 : current - .5)}>Half star</button><button type="button" className="text-button" disabled={!current} onClick={() => { setHover(null); onChange(''); }}>Clear rating</button></div>
   </div>;
@@ -112,9 +115,8 @@ export function RatingFilter({ value, onChange }: { value: string; onChange: (va
   const parsedScore = value.startsWith('min:') || value.startsWith('exact:') ? Number(value.replace(/^(min:|exact:)/, '')) : null;
   const starScore = parsedScore != null && Number.isFinite(parsedScore) ? Math.min(5, Math.max(0, parsedScore)) : null;
   return <div className="filter-field toolbar-filter-field rating-filter-field" ref={root}>
-    <span id={id} className="sr-only">My rating</span>
-    <button ref={trigger} type="button" aria-labelledby={`${id} ${id}-value`} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? `${id}-panel` : undefined} className="select-trigger toolbar-select-trigger rating-filter-trigger" onClick={() => setOpen(current => !current)}>
-      <span className="toolbar-select-label" aria-hidden="true">Rating</span><span id={`${id}-value`} className="toolbar-select-value">{starScore == null ? label : <><span className="rating-stars-value" aria-hidden="true">{[1, 2, 3, 4, 5].map(n => <Star key={n} fill={Math.max(0, Math.min(1, starScore - n + 1))} />)}</span><span className="sr-only">{label}</span></>}</span><Icon name="chevron" />
+    <button ref={trigger} type="button" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? `${id}-panel` : undefined} className="select-trigger toolbar-select-trigger rating-filter-trigger" onClick={() => setOpen(current => !current)}>
+      <span className="toolbar-select-label">Rating</span><span className="toolbar-select-value">{starScore == null ? label : <><span className="rating-stars-value" aria-hidden="true">{[1, 2, 3, 4, 5].map(n => <Star key={n} fill={Math.max(0, Math.min(1, starScore - n + 1))} />)}</span><span className="sr-only">{label}</span></>}</span><Icon name="chevron" />
     </button>
     {open && <div id={`${id}-panel`} className={`rating-filter-popover${openAbove ? ' is-above' : ''}`} role="dialog" aria-label="Filter by rating">
       <div className="rating-filter-choices">

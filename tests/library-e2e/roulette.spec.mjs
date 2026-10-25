@@ -127,7 +127,7 @@ test('owner roulette: full planned pool, fair reel landing, keyboard, mobile and
     await page.keyboard.press('Escape');
     await expect(trigger).toBeInViewport();
     const header = await trigger.boundingBox();
-    const addLog = await page.getByRole('button', { name: 'Add / Log', exact: true }).boundingBox();
+    const addLog = await page.getByRole('button', { name: 'Add title', exact: true }).boundingBox();
     expect(header.x + header.width).toBeLessThanOrEqual(addLog.x);
     const after = await (await page.request.get('/api/library')).json();
     expect(after).toEqual(before);

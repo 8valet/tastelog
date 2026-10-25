@@ -6,7 +6,7 @@ async function login(page) {
   await page.getByLabel('Email', { exact: true }).fill('owner@library.test');
   await page.getByLabel('Password', { exact: true }).fill('library-test-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Add / Log', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add title', exact: true })).toBeVisible();
 }
 async function choose(page, label, option) {
   const scope = await page.getByRole('dialog').count() ? page.getByRole('dialog') : page;
@@ -30,20 +30,23 @@ test('owner logging, privacy, cross-session saving, catalogs fallback, lists, ba
   await login(page);
   await command(page.request, { op: 'save', work: suggestions[0], patch: {} });
   await page.reload();
-  await page.getByRole('button', { name: 'Add / Log', exact: true }).click();
+  await page.getByRole('button', { name: 'Add title', exact: true }).click();
   await expect(page.getByText('This catalog is not connected yet.', { exact: false })).toBeVisible();
   await page.getByRole('dialog').getByRole('button', { name: /The Paper Observatory/ }).click();
   await commit(page, 'Save entry');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.goto('/admin/library?view=collection&status=all');
+  await expect(page.getByRole('button', { name: 'Rating Any rating', exact: true })).toBeVisible();
   let state = await (await page.request.get('/api/library')).json();
   expect(state.state.events).toHaveLength(0); expect(state.state.records[0].visibility).toBe('private');
   const privateResponse = await anon.request.get(`${origin}/api/library`); expect(JSON.stringify(await privateResponse.json())).not.toContain('The Paper Observatory');
   await page.getByRole('button', { name: 'The Paper Observatory', exact: true }).click();
-  await page.getByRole('slider', { name: 'My current rating', exact: true }).focus(); await page.keyboard.press('End'); await page.keyboard.press('ArrowLeft');
+  const ratingSlider = page.getByRole('slider', { name: 'My current rating', exact: true });
+  await expect(ratingSlider.locator('button')).toHaveCount(0);
+  await ratingSlider.focus(); await page.keyboard.press('End'); await page.keyboard.press('ArrowLeft');
   await choose(page, 'Status', 'Watched');
   await choose(page, 'Collection visibility', 'Publish title, status and current rating');
-  await page.getByLabel('Favorite · order can be edited in Admin').check();
+  await page.getByLabel('Favorite · order can be edited in Settings').check();
   await page.getByText('Private notes', { exact: true }).click();
   await page.getByLabel('Notes', { exact: true }).fill('SECRET_OWNER_NOTE');
   await commit(page, 'Save changes');
@@ -67,17 +70,18 @@ test('owner logging, privacy, cross-session saving, catalogs fallback, lists, ba
   await choose(page, 'Genre', 'Drama (5)'); await expect(page).toHaveURL(/genre=Drama/);
   await page.reload(); await expect(page.getByRole('combobox', { name: 'Genre', exact: true })).toContainText('Drama');
   await page.getByRole('button', { name: 'Games', exact: true }).click(); await expect(page.getByText('No matching titles', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Drama', exact: false }).click();
+  const genreChip = page.getByRole('button', { name: 'Genre: Drama', exact: true });
+  await genreChip.click(); await expect(page).not.toHaveURL(/genre=/); await expect(genreChip).toHaveCount(0);
   const playedFilter = page.getByRole('button', { name: 'Played', exact: true });
   await playedFilter.focus(); await page.keyboard.press('Enter');
   await expect(playedFilter).toBeFocused(); await expect(playedFilter).toHaveAttribute('aria-pressed', 'false');
-  await expect(page).toHaveURL(/status=all/);
+  await expect(page).toHaveURL(/status=all/); await expect(page).not.toHaveURL(/genre=/);
   await page.getByRole('button', { name: 'Ember Circuit', exact: true }).click(); await page.getByLabel('Platform (optional)').fill('PC'); await page.getByLabel('Hours played (optional)').fill('30.5');
   await commit(page, 'Save changes'); await page.getByRole('button', { name: 'Close', exact: true }).click();
 
   // Log twice; clearing Today must preserve an unknown date and repeat events.
   for (let i = 0; i < 2; i++) {
-    await page.getByRole('button', { name: 'Add / Log', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: /The Paper Observatory/ }).click();
+    await page.getByRole('button', { name: 'Add title', exact: true }).click(); await page.getByRole('dialog').getByRole('button', { name: /The Paper Observatory/ }).click();
     await choose(page, 'What would you like to do?', 'Log a watch / rewatch'); await page.getByRole('slider', { name: 'Rating for this diary entry (optional)', exact: true }).focus(); await page.keyboard.press('End'); await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowLeft'); await page.getByLabel('Also update my current rating', { exact: true }).check();
     await page.getByLabel('Date · today by default').fill('');
     await page.getByText('Add a review (optional)', { exact: true }).click(); await page.getByLabel('Review', { exact: true }).fill('SECRET_DIARY_REVIEW');
@@ -93,7 +97,7 @@ test('owner logging, privacy, cross-session saving, catalogs fallback, lists, ba
   await choose(page, 'Visibility', 'Publish this list'); await page.getByRole('button', { name: 'Orbit Couriers', exact: true }).click(); await page.getByRole('button', { name: 'The Paper Observatory', exact: true }).click(); await commit(page, 'Save list'); await expect(page.getByRole('dialog')).toHaveCount(0);
   const publishedList = await (await anon.request.get(`${origin}/api/library`)).json(); expect(publishedList.state.lists[0].workIds).toEqual([suggestions[3].id, suggestions[0].id]); expect(publishedList.state.records.some(r => r.workId === suggestions[3].id)).toBe(false);
   expect(JSON.stringify(publishedList)).not.toContain('TEST_FIXTURE_PRIVATE');
-  await page.getByRole('link', { name: 'Admin', exact: true }).click();
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await commit(page, 'Restore'); state = await (await page.request.get('/api/library')).json(); expect(state.state.events.every(e => e.deletedAt == null)).toBe(true);
   const exportResponse = await page.request.get('/api/library/export'); expect(exportResponse.status()).toBe(200); const backup = await exportResponse.json(); expect(backup.state.records).toHaveLength(9);
   await page.getByLabel('Review a library backup').setInputFiles({ name: 'library.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) }); await expect(page.getByText('Restore review', { exact: true })).toBeVisible();
@@ -119,7 +123,7 @@ test('owner logging, privacy, cross-session saving, catalogs fallback, lists, ba
     }
     await expect(page.getByRole('group', { name: 'Filter by status' })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Genre', exact: true })).toBeVisible();
-    const ratingTrigger = page.getByRole('button', { name: /My rating/ });
+    const ratingTrigger = page.getByRole('button', { name: /^Rating/ });
     await ratingTrigger.click();
     await expect(page.getByRole('dialog', { name: 'Filter by rating' })).toBeVisible();
     await page.keyboard.press('Escape');
@@ -146,7 +150,7 @@ test('owner logging, privacy, cross-session saving, catalogs fallback, lists, ba
   await page.emulateMedia({ reducedMotion: 'reduce' }); await page.goto('/admin/library?view=collection'); await page.getByRole('combobox', { name: 'Sort by', exact: true }).click(); expect(await page.getByRole('listbox').evaluate(el => getComputedStyle(el).animationName)).toBe('none'); await page.keyboard.press('Escape');
 
   // Failed/expired saves leave a manual draft in the form and never claim success.
-  await page.getByRole('button', { name: 'Add / Log', exact: true }).click(); await page.getByRole('button', { name: /Can’t find it/ }).click(); await page.getByLabel('Title', { exact: true }).fill('Unsaved manual title'); await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await page.getByRole('button', { name: 'Add title', exact: true }).click(); await page.getByRole('button', { name: /Can’t find it/ }).click(); await page.getByLabel('Title', { exact: true }).fill('Unsaved manual title'); await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.context().clearCookies(); await page.getByRole('button', { name: 'Save entry', exact: true }).click(); await expect(page.getByRole('dialog').getByText('Unsaved manual title', { exact: true })).toBeVisible(); await expect(page.getByRole('dialog').getByText('Sign in as the library owner to continue.', { exact: true })).toBeVisible();
   await anon.close(); await device2.close();
 });
@@ -194,7 +198,7 @@ test('remove updates the collection immediately while the server save is still p
 
   const addedTitle = 'Latency check add title';
   await page.getByRole('button', { name: 'Close', exact: true }).click();
-  await page.getByRole('button', { name: 'Add / Log', exact: true }).click();
+  await page.getByRole('button', { name: 'Add title', exact: true }).click();
   await page.getByRole('button', { name: /Can’t find it/ }).click();
   await page.getByLabel('Title', { exact: true }).fill(addedTitle);
   await page.getByRole('button', { name: 'Continue', exact: true }).click();

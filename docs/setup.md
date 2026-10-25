@@ -50,9 +50,9 @@ Open `/admin/library`, sign in, and add one title manually. Refresh to confirm i
 
 ## Backups
 
-In Admin, download a complete JSON backup before replacing data. A restore validates and replaces the state after review; preserve a pre-restore copy. CSV is a collection summary and cannot restore the diary or ordered lists.
+In Settings, download a complete JSON backup before replacing data. A restore validates and replaces the state after review; preserve a pre-restore copy. CSV is a collection summary and cannot restore the diary or ordered lists.
 
-New backups use the `media-library` version 1 envelope. Existing `aziz-library` version 1 backups remain readable for compatibility with the original application. That format identifier is retained deliberately; no original records ship with it. Never commit a personal backup or recovery URL.
+New backups use the `media-library` version 1 envelope. Older version 1 backups remain readable for compatibility. Never commit a personal backup or recovery URL.
 
 ## Troubleshooting
 

@@ -24,8 +24,8 @@ export function TraktConnection({ revision, refreshLibrary, imported }: { revisi
   const check = (page = 1) => run(async () => { const next = await request({ action: 'preview', page, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Riyadh' }); setStatus(current => current && ({ ...current, preview: next, lastChecked: next.checkedAt })); setSelected([]); pending.current = null; });
   const eligible = preview?.entries.filter(v => !v.duplicate && !v.removed) ?? [];
   return <section className="settings-section trakt-connection" aria-labelledby="trakt-heading">
-    <div className="section-heading"><h3 id="trakt-heading">Harbor → Trakt</h3><span className="muted">{status ? status.connected ? `Connected · @${status.username}` : 'Not connected' : 'Checking connection…'}</span></div>
-    <p>Connect the same Trakt account you use in Harbor. Review watched titles here before adding them to your private collection.</p>
+    <div className="section-heading"><h3 id="trakt-heading">Trakt</h3><span className="muted">{status ? status.connected ? `Connected · @${status.username}` : 'Not connected' : 'Checking connection…'}</span></div>
+    <p>Connect your Trakt account to review watched titles before adding them to your private collection.</p>
     <p className="muted">Your ratings, notes and progress stay as you set them. Imports are private and make no changes to Trakt. Series, including anime, use TMDB titles; episode tracking is off for this MVP.</p>
     {params.get('trakt') === 'failed' && !status?.connected && <p className="error-message" role="alert">{traktFailureMessage(params.get('trakt_reason'))}</p>}
     {params.get('trakt') === 'connected' && status?.connected && <p role="status">Trakt connected. You can now review your history.</p>}

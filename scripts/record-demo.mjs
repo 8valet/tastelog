@@ -54,11 +54,17 @@ try {
   for (const work of samples) {
     const state = await page.evaluate(async () => (await fetch('/api/library')).json());
     const result = await page.evaluate(async ({ revision, work }) => {
-      const response = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision, requestId: crypto.randomUUID(), command: { op: 'save', work: { ...work, episodes: null, seasons: null, summary: '' }, patch: { status: 'backlog', visibility: 'private' } } }) });
+      const response = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision, requestId: crypto.randomUUID(), command: { op: 'save', work: { ...work, episodes: null, seasons: null, summary: '' }, patch: { status: 'backlog', rating: 5, visibility: 'private' } } }) });
       return { status: response.status, body: await response.json() };
     }, { revision: state.revision, work });
     if (result.status !== 200) throw new Error(`Could not seed isolated demo record: ${JSON.stringify(result.body)}`);
   }
+  const state = await page.evaluate(async () => (await fetch('/api/library')).json());
+  const diary = await page.evaluate(async ({ revision, movie }) => {
+    const response = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision, requestId: crypto.randomUUID(), command: { op: 'log', work: movie, updateRating: false, event: { id: 'demo:shawshank-watch', workId: movie.id, date: new Date().toISOString().slice(0, 10), rating: 5, review: 'A story that stays with you.', spoiler: false, visibility: 'private', kind: 'watch', episodeFrom: null, episodeTo: null, season: 1 } } }) });
+    return { status: response.status, body: await response.json() };
+  }, { revision: state.revision, movie: { ...samples[0], episodes: null, seasons: null, summary: '' } });
+  if (diary.status !== 200) throw new Error(`Could not seed isolated demo diary entry: ${JSON.stringify(diary.body)}`);
 
   await page.goto(`${baseURL}/library?view=collection&status=all`);
   await page.locator('.az-library[data-library-ready="true"]').waitFor();

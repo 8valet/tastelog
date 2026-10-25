@@ -39,7 +39,7 @@ test('password recovery rejects unverified changes, validates the link, and rest
   await expect(page.getByRole('main').getByRole('alert')).toContainText('could not be verified');
   await page.getByLabel('Password', { exact: true }).fill('new-isolated-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Add / Log', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add title', exact: true })).toBeVisible();
   // The default hosted email redirects with session tokens in a URL fragment.
   const issued = await (await page.request.post('http://127.0.0.1:3212/auth/v1/token?grant_type=password', {
     data: { email: 'owner@library.test', password: 'new-isolated-password' },

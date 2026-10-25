@@ -2,11 +2,13 @@
 
 Your taste, logged. A self-hosted personal library for movies, TV, anime, and games.
 
+[![CI](https://github.com/8valet/tastelog/actions/workflows/ci.yml/badge.svg)](https://github.com/8valet/tastelog/actions/workflows/ci.yml) [![MIT License](https://img.shields.io/badge/license-MIT-white.svg)](LICENSE) [![Self-hosted](https://img.shields.io/badge/deployment-self--hosted-171919.svg)](docs/deployment.md)
+
 Keep a collection, rate titles with half stars, write a diary, organize lists, and pick your next watch or play from your backlog. Each installation belongs to one owner; visitors see only the titles, diary entries, and lists you choose to publish.
 
 ![Tastelog collection featuring sample titles from movies, anime, and games](docs/screenshots/overview.png)
 
-[Watch the short demo](docs/demo.gif) · [WebM recording](docs/demo.webm)
+[Watch the short demo](docs/demo.gif) · [WebM recording](docs/demo.webm) · [Setup guide](docs/setup.md) · [Contributing](CONTRIBUTING.md)
 
 ## Features
 
@@ -22,7 +24,7 @@ Keep a collection, rate titles with half stars, write a diary, organize lists, a
 - Owner login through Supabase, with separate private and public database documents.
 - Keyboard controls, reduced motion, and responsive phone layouts.
 
-Installs start empty. No real collection, account, API credentials, or personal poster mappings are included. The screenshots and demo use a disposable local account with three recognizable sample titles; the ratings and backlog statuses are illustrative. Their artwork is loaded from the relevant catalog image services and is not included in the MIT license.
+Installs start empty. No real collection, account, API credentials, or personal poster mappings are included. The screenshots and demo use a disposable local account with recognizable sample titles; ratings and backlog statuses are illustrative. Their artwork is loaded from the relevant catalog image services and is not included in the MIT license.
 
 ## Quick start
 

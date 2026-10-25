@@ -15,7 +15,7 @@ test('Trakt routes require owner/origin and the local connection explains HTTPS 
   expect((await anon.request.post(`${origin}/api/library/trakt`, { headers: { Origin: origin }, data: { action: 'connect' } })).status()).toBe(401);
   expect((await anon.request.post(`${origin}/api/library/trakt`, { headers: { Origin: 'https://unrelated.test' }, data: { action: 'connect' } })).status()).toBe(403);
   await login(page);
-  await expect(page.getByRole('button', { name: 'Add / Log', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add title', exact: true })).toBeVisible();
   const status = await (await page.request.get('/api/library/trakt')).json(); expect(status.connected).toBe(false); expect(status.canConnect).toBe(false);
   const denied = await page.request.post('/api/library/trakt', { headers: { Origin: origin }, data: { action: 'connect' } }); expect(denied.status()).toBe(409);
   await page.goto('/admin/library?view=settings');
@@ -35,7 +35,7 @@ test('failed connections explain recovery without leaving stale errors after a s
   let connected = false;
   await page.route('**/api/library/trakt', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ configured: true, canConnect: true, connected, username: 'fixture', preview: null }) }));
   await page.goto('/admin/library?view=settings&trakt=failed&trakt_reason=token');
-  const connectionSection = page.getByRole('region', { name: 'Harbor → Trakt' });
+  const connectionSection = page.getByRole('region', { name: 'Trakt' });
   await expect(connectionSection.getByRole('alert')).toHaveText('Trakt could not complete sign-in with the website. Your library is unchanged. Try Connect Trakt again; if this repeats, report this message.');
   await expect(page.getByRole('button', { name: 'Connect Trakt', exact: true })).toBeEnabled();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -49,7 +49,7 @@ test('failed connections explain recovery without leaving stale errors after a s
 
 test('review selection, private import, duplicates, outages and disconnect are clear on desktop and phone', async ({ page }) => {
   await login(page);
-  await expect(page.getByRole('button', { name: 'Add / Log', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add title', exact: true })).toBeVisible();
   // Only the provider/connection transport is mocked. The import uses the real
   // application command endpoint and isolated Postgres storage.
   const work = { ...suggestions[0], id: 'tmdb:movie:999', provider: 'tmdb', providerId: '999', title: 'Trakt private fixture' };
@@ -117,7 +117,7 @@ test('review selection, private import, duplicates, outages and disconnect are c
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.goto('/admin/library');
-  await page.getByRole('button', { name: 'Add / Log', exact: true }).click();
+  await page.getByRole('button', { name: 'Add title', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: /The Paper Observatory/ }).first().click();
   await page.getByRole('combobox', { name: 'What would you like to do?' }).click();
   await expect(page.getByRole('option', { name: 'Log episodes' })).toHaveCount(0);
