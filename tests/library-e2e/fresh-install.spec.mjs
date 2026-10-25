@@ -5,10 +5,12 @@ test('fresh installation adds its first manual title with no catalog credentials
   await page.getByLabel('Email', { exact: true }).fill('owner@library.test');
   await page.getByLabel('Password', { exact: true }).fill('library-test-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Add / Log', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add title', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to Tastelog', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Add your first title', exact: true })).toBeVisible();
   const initial = await (await page.request.get('/api/library')).json();
   expect(initial.state.works).toEqual([]);
-  await page.getByRole('button', { name: 'Add / Log', exact: true }).click();
+  await page.getByRole('button', { name: 'Add title', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Search catalog', exact: true })).toBeDisabled();
   await expect(dialog.locator('.search-results')).toHaveCount(0);

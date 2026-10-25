@@ -51,6 +51,12 @@
 :where(.az-library,.az-library-modal) .profile-identity { align-items: center; gap: 18px; min-width: 0; display: flex; }
 :where(.az-library,.az-library-modal) .profile-identity img { border-radius: 50%; }
 :where(.az-library,.az-library-modal) .profile p { color: var(--paper-dim); margin-top: 7px; font-size: 14px; }
+:where(.az-library,.az-library-modal) .welcome-panel { border: 1px solid var(--line); background: #0d0f11; border-radius: 12px; margin: 0 0 30px; padding: 24px; }
+:where(.az-library,.az-library-modal) .welcome-panel h2 { margin-top: 4px; font-size: 22px; }
+:where(.az-library,.az-library-modal) .welcome-panel>div:first-child>p:last-child { color: var(--paper-dim); margin-top: 6px; }
+:where(.az-library,.az-library-modal) .welcome-kicker { color: var(--paper-dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+:where(.az-library,.az-library-modal) .welcome-actions { flex-wrap: wrap; gap: 10px; margin-top: 18px; display: flex; }
+:where(.az-library,.az-library-modal) .welcome-panel>.muted { margin-top: 16px; }
 :where(.az-library,.az-library-modal) .profile-actions { flex-direction: column; flex: none; align-items: flex-end; gap: 4px; font-size: 12px; display: flex; }
 :where(.az-library,.az-library-modal) .profile-actions a { min-height: 44px; color: var(--paper-dim); align-items: center; gap: 6px; display: inline-flex; }
 :where(.az-library,.az-library-modal) .profile-actions a:hover { color: var(--paper); }
@@ -87,10 +93,10 @@
 :where(.az-library,.az-library-modal) .rating-field { flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; display: flex; }
 :where(.az-library,.az-library-modal) .rating-label { color: var(--paper-dim); font-size: 12px; }
 :where(.az-library,.az-library-modal) .rating-editor { background: 0 0; border: 0; border-radius: 6px; align-items: center; gap: 3px; width: max-content; min-height: 34px; padding: 0; display: flex; }
+:where(.az-library,.az-library-modal) .rating-editor { cursor: pointer; }
 :where(.az-library,.az-library-modal) .rating-editor:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
-:where(.az-library,.az-library-modal) .rating-editor button { appearance: none; width: 32px; height: 32px; color: var(--paper-dim); background: 0 0; border: 0; border-radius: 4px; place-items: center; margin: 0; padding: 3px; line-height: 0; display: grid; }
-:where(.az-library,.az-library-modal) .rating-editor button:hover { color: var(--paper); background: #1b1e20; }
-:where(.az-library,.az-library-modal) .rating-editor button svg { fill: none; stroke: currentColor; stroke-width: 1.4px; width: 24px; height: 24px; display: block; }
+:where(.az-library,.az-library-modal) .rating-editor .rating-star { color: var(--paper-dim); width: 32px; height: 32px; place-items: center; display: grid; }
+:where(.az-library,.az-library-modal) .rating-editor .rating-star svg { fill: none; stroke: currentColor; stroke-width: 1.4px; width: 24px; height: 24px; display: block; }
 :where(.az-library,.az-library-modal) .rating-editor .star-fill { fill: currentColor; stroke: none; }
 :where(.az-library,.az-library-modal) .rating-editor .star-outline { fill: none; stroke: currentColor; stroke-width: 1.5px; }
 :where(.az-library,.az-library-modal) .rating-tools { min-height: 30px; color: var(--paper-dim); flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; display: flex; }
@@ -637,6 +643,7 @@ body:has(.library-dialog[open]) { overflow: hidden; }
 .az-library-modal .roulette-poster { flex: 0 0 var(--roulette-card-width); width: var(--roulette-card-width); aspect-ratio: 2/3; overflow: hidden; background: var(--ink-raised); border-radius: 5px; opacity: .6; }
 .az-library-modal .roulette-poster img,.az-library-modal .roulette-poster .missing-cover { display: block; width: 100%; height: 100%; object-fit: contain; }
 .az-library-modal .roulette-poster .missing-cover { display: grid; place-items: center; font-size: 12px; color: var(--paper-dim); }
+.az-library-modal .roulette-poster:has(.missing-cover) { opacity: 1; }
 .az-library-modal .roulette-poster[data-winner=true] { opacity: 1; outline: 1px solid var(--paper); outline-offset: 3px; }
 .az-library-modal .roulette-marker { position: absolute; z-index: 1; left: calc(50% - 5px); top: 0; width: 10px; height: 10px; background: var(--paper); clip-path: polygon(0 0,100% 0,50% 100%); }
 .az-library-modal .roulette-stage-empty { color: var(--paper-dim); text-align: center; width: 100%; padding: 24px; font-size: 14px; }

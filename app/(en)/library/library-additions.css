@@ -272,6 +272,7 @@ body:has(.library-dialog[open]) { overflow: hidden; }
 .az-library-modal .roulette-poster { flex: 0 0 var(--roulette-card-width); width: var(--roulette-card-width); aspect-ratio: 2/3; overflow: hidden; background: var(--ink-raised); border-radius: 5px; opacity: .6; }
 .az-library-modal .roulette-poster img,.az-library-modal .roulette-poster .missing-cover { display: block; width: 100%; height: 100%; object-fit: contain; }
 .az-library-modal .roulette-poster .missing-cover { display: grid; place-items: center; font-size: 12px; color: var(--paper-dim); }
+.az-library-modal .roulette-poster:has(.missing-cover) { opacity: 1; }
 .az-library-modal .roulette-poster[data-winner=true] { opacity: 1; outline: 1px solid var(--paper); outline-offset: 3px; }
 .az-library-modal .roulette-marker { position: absolute; z-index: 1; left: calc(50% - 5px); top: 0; width: 10px; height: 10px; background: var(--paper); clip-path: polygon(0 0,100% 0,50% 100%); }
 .az-library-modal .roulette-stage-empty { color: var(--paper-dim); text-align: center; width: 100%; padding: 24px; font-size: 14px; }
