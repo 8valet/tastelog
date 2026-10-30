@@ -28,6 +28,11 @@ function titleIdsForPeriod(state: LibraryState, period: StatsPeriod, finishedOnl
     }
   } else {
     const year = String(period);
+    for (const record of records.values()) {
+      const type = workTypes.get(record.workId);
+      const touchedThisYear = record.addedAt.slice(0, 4) === year || record.updatedAt.slice(0, 4) === year;
+      if (type && touchedThisYear && (!finishedOnly || record.status === 'completed')) idsByType.get(type)?.add(record.workId);
+    }
     for (const event of state.events) {
       if (event.deletedAt || !event.date || event.date.slice(0, 4) !== year) continue;
       const type = workTypes.get(event.workId);
@@ -142,7 +147,7 @@ export function LibraryStats({ state, period, years, onPeriodChange, type }: Pro
     ? `${categoryCount} · ${titleScope} · ${periodName}`
     : period === 'lifetime'
       ? `${experiencedTotal} distinct titles experienced across your library.`
-      : `${experiencedTotal} distinct titles with dated diary activity in ${periodName}.`;
+      : `${experiencedTotal} distinct titles with dated library activity in ${periodName}.`;
   const heading = type ? 'Your taste' : 'Library activity';
   const tableLabel = type ? `${typeNames[type]} genres in ${periodName}` : `Library titles in ${periodName}`;
   const coverage = type ? `Genre data: ${withGenreCount} of ${experiencedTotal} titles · Titles can have more than one genre.` : undefined;
@@ -157,7 +162,7 @@ export function LibraryStats({ state, period, years, onPeriodChange, type }: Pro
 
   return <section className={`library-stats${type ? ' library-stats-category' : ''}`}>
     <div className="stats-heading">
-      <div><h2>{heading}</h2><p className="muted">{type ? `${typeNames[type]} · ${periodName}` : period === 'lifetime' ? 'Titles experienced · Lifetime' : `Titles with diary activity · ${periodName}`}</p></div>
+      <div><h2>{heading}</h2><p className="muted">{type ? `${typeNames[type]} · ${periodName}` : period === 'lifetime' ? 'Titles experienced · Lifetime' : `Titles with dated library activity · ${periodName}`}</p></div>
       <PeriodButtons years={years} period={period} onChange={onPeriodChange} />
     </div>
     {type && <label className="stats-finished"><input type="checkbox" checked={finishedOnly} onChange={event => setFinishedOnly(event.currentTarget.checked)} /><span>Finished only</span></label>}
@@ -174,7 +179,7 @@ export function LibraryStats({ state, period, years, onPeriodChange, type }: Pro
               : experiencedTotal === 0
                 ? `No dated ${typeNames[type]} activity in ${periodName} yet.`
                 : `No genre information is available for these ${typeNames[type].toLowerCase()} titles.`
-            : `No diary activity recorded for ${periodName}.`}</p>
+            : `No dated library activity recorded for ${periodName}.`}</p>
         {type && period !== 'lifetime' && rows.length === 0 && lifetimeGenreData.rows.length > 0 && <Bars
           rows={lifetimeGenreData.rows}
           label={`${typeNames[type]} genres · Lifetime`}

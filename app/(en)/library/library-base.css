@@ -93,6 +93,10 @@
 :where(.az-library,.az-library-modal) .rating-editor .star-fill { fill: currentColor; stroke: none; }
 :where(.az-library,.az-library-modal) .rating-editor .star-outline { fill: none; stroke: currentColor; stroke-width: 1.5px; }
 :where(.az-library,.az-library-modal) .rating-tools { min-height: 30px; color: var(--paper-dim); flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; display: flex; }
+:where(.az-library,.az-library-modal) .rating-number-editor { align-items: center; gap: 12px; width: min(360px,100%); min-height: 34px; display: flex; }
+:where(.az-library,.az-library-modal) .rating-number-input { accent-color: var(--paper); flex: 1; min-width: 150px; }
+:where(.az-library,.az-library-modal) .rating-number-editor output { color: var(--paper); font-variant-numeric: tabular-nums; min-width: 54px; font-size: 13px; font-weight: 600; text-align: right; }
+:where(.az-library,.az-library-modal) .numeric-rating:not(.unrated) span { color: var(--paper); font-weight: 600; }
 :where(.az-library,.az-library-modal) .sidebar { border-left: 1px solid var(--line); padding-left: 26px; }
 :where(.az-library,.az-library-modal) .sidebar .section-heading h2 { font-size: 14px; }
 :where(.az-library,.az-library-modal) .diary-mini { gap: 12px; margin-bottom: 19px; display: flex; }
@@ -163,7 +167,7 @@
 :where(.az-library,.az-library-modal) .layout-switch button { min-height: 38px; color: var(--paper-dim); background: 0 0; border-radius: 5px; padding: 8px 12px; font-size: 12px; }
 :where(.az-library,.az-library-modal) .layout-switch button[aria-pressed=true] { color: var(--paper); background: #282d31; }
 :where(.az-library,.az-library-modal) .list-layout { display: block; }
-:where(.az-library,.az-library-modal) .collection-row { border-bottom: 1px solid var(--line); grid-template-columns: minmax(0,1fr) 140px 85px; align-items: center; gap: 20px; padding: 16px 0; display: grid; }
+:where(.az-library,.az-library-modal) .collection-row { border-bottom: 1px solid var(--line); color: inherit; text-align: left; background: 0 0; grid-template-columns: minmax(0,1fr) 140px 85px; align-items: center; gap: 20px; width: 100%; padding: 16px 0; display: grid; }
 :where(.az-library,.az-library-modal) .row-title { text-align: left; background: 0 0; align-items: center; gap: 16px; min-width: 0; padding: 0; display: flex; }
 :where(.az-library,.az-library-modal) .row-title img { aspect-ratio: 2/3; object-fit: contain; border-radius: 4px; width: 54px; }
 :where(.az-library,.az-library-modal) .row-title strong { overflow-wrap: anywhere; font-size: 15px; font-weight: 500; }

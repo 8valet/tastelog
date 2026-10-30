@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { applyCommand, backupSchema, browse, Command, DiaryEvent, emptyState, LibraryList, LibraryRecord, LibraryState, typeNames, types, Work } from '../../../lib/library/model';
 import { libraryConfig } from '../../../lib/config';
-import { FieldSelect, Icon, Modal, RatingFilter, RatingInput, Stars, ratingFilterLabel, statusesFor } from './controls';
+import { FieldSelect, Icon, Modal, RatingFilter, RatingInput, RatingScaleProvider, Stars, ratingFilterLabel, statusesFor, useRatingScale } from './controls';
 import { matchesTitle } from '../../../lib/library/text';
 import { browseDiary, overviewPicks } from '../../../lib/library/discovery';
 import { CatalogRepair, ImportReview } from './catalog-repair';
@@ -49,7 +49,12 @@ function statusFilterOptions(type?: string): [string, string][] {
   ];
 }
 
-export default function LibraryApp({ initial, configured, catalogs, initialError = '', admin = false }: Props) {
+export default function LibraryApp(props: Props) {
+  return <RatingScaleProvider><LibraryAppContent {...props} /></RatingScaleProvider>;
+}
+
+function LibraryAppContent({ initial, configured, catalogs, initialError = '', admin = false }: Props) {
+  const { scale: ratingScale } = useRatingScale();
   const [snapshot, setSnapshot] = useState(initial), [error, setError] = useState(initialError), [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false), [detail, setDetail] = useState<Work | null>(null), [log, setLog] = useState<Work | 'search' | null>(null);
   const [editingEvent, setEditingEvent] = useState<DiaryEvent | null>(null), [editingList, setEditingList] = useState<LibraryList | 'new' | null>(null);
@@ -78,7 +83,11 @@ export default function LibraryApp({ initial, configured, catalogs, initialError
   const { state, owner } = snapshot;
   const view = params.get('view') || 'overview';
   const activeRecords = useMemo(() => state.records.filter(r => !r.deletedAt), [state.records]), activeEvents = useMemo(() => state.events.filter(e => !e.deletedAt), [state.events]), activeLists = useMemo(() => state.lists.filter(l => !l.deletedAt), [state.lists]);
-  const latestStatsYear = activeEvents.reduce((latest, event) => event.date ? Math.max(latest, Number(event.date.slice(0, 4))) : latest, new Date().getFullYear());
+  const latestStatsYear = Math.max(
+    new Date().getFullYear(),
+    ...activeEvents.flatMap(event => event.date ? [Number(event.date.slice(0, 4))] : []),
+    ...activeRecords.flatMap(record => [Number(record.addedAt.slice(0, 4)), Number(record.updatedAt.slice(0, 4))]),
+  );
   const statsYears = [latestStatsYear - 2, latestStatsYear - 1, latestStatsYear];
   const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>(latestStatsYear);
   const records = new Map(activeRecords.map(r => [r.workId, r]));
@@ -129,7 +138,7 @@ export default function LibraryApp({ initial, configured, catalogs, initialError
   const activeFilterChips: [string, string, string][] = [];
   if (filters.q) activeFilterChips.push(['q', 'Search', filters.q]);
   if (filters.genre) activeFilterChips.push(['genre', 'Genre', filters.genre]);
-  if (filters.rating) activeFilterChips.push(['rating', 'Rating', ratingFilterLabel(filters.rating)]);
+  if (filters.rating) activeFilterChips.push(['rating', 'Rating', ratingFilterLabel(filters.rating, ratingScale)]);
   if (filters.decade) activeFilterChips.push(['decade', 'Decade', `${filters.decade}s`]);
   if (filters.year) activeFilterChips.push(['year', 'Release year', filters.year]);
   if (filters.list) activeFilterChips.push(['list', 'List', activeLists.find(list => list.id === filters.list)?.name || 'List']);
@@ -312,10 +321,12 @@ function ListForm({ list, state, save, busy, done }: { list: LibraryList | null;
 }
 
 function Settings({ state, revision, refreshLibrary, imported, catalogs, save, busy, openWork, repair, editEvent, editList }: { state: LibraryState; revision: number; refreshLibrary: () => Promise<boolean>; imported: (snapshot: Snapshot) => void; catalogs: Props['catalogs']; save: Save; busy: boolean; openWork: (w: Work) => void; repair: (w: Work) => void; editEvent: (e: DiaryEvent) => void; editList: (l: LibraryList) => void }) {
+  const { scale: ratingScale, setScale: setRatingScale } = useRatingScale();
   const [restore, setRestore] = useState<LibraryState | null>(null), [error, setError] = useState(''), [acknowledged, setAcknowledged] = useState(false);
   const [priorRestore, setPriorRestore] = useState<LibraryState | null>(null);
   const active = state.records.filter(r => !r.deletedAt);
   return <section className="settings"><div className="view-title"><div><h2>Library admin</h2><p>Your collection, sharing, backups and connections.</p></div></div>
+    <section className="settings-section"><h3>Ratings</h3><p className="muted">Choose how ratings are shown and entered on this device. Existing ratings stay unchanged.</p><div className="layout-switch rating-scale-switch" role="group" aria-label="Rating scale"><button type="button" aria-pressed={ratingScale === 5} onClick={() => setRatingScale(5)}>5 stars</button><button type="button" aria-pressed={ratingScale === 10} onClick={() => setRatingScale(10)}>10-point</button></div></section>
     <ImportReview state={state} repair={repair} editEvent={editEvent} editList={editList} />
     <section className="settings-section"><h3>Favorites and order</h3><p className="muted">Choose favorites in title details, then set their order here. Ratings are a separate choice.</p>{types.map(type => {
       const favorites = active.filter(r => r.favorite && state.works.find(w => w.id === r.workId)?.type === type).sort((a, b) => a.favorite! - b.favorite!);
