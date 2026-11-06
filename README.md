@@ -79,6 +79,11 @@ See [catalog and Trakt configuration](docs/integrations.md), [deployment](docs/d
 
 ## Development
 
+TasteLog is the canonical source for future reusable library development. See the
+[planned release and review record](docs/development-plan.md) and the
+[controlled portfolio update process](docs/portfolio-updates.md). Features are
+being collected for one planned release; its final scope and version are pending.
+
 ```sh
 npm test                    # Model, database, privacy, backup and integration logic
 npm run lint

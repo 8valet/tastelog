@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { matchesTitle } from './text.ts';
+import { rankOverviewPicks } from './discovery.ts';
 // Use the interpreter rather than probing new Function under the browser CSP.
 z.config({ jitless: true });
 export class LibraryCommandError extends Error {}
@@ -38,7 +39,12 @@ export const listSchema = z.object({
   id, name: z.string().trim().min(1).max(150), description: z.string().max(5000),
   visibility: z.enum(['private', 'public']), workIds: z.array(id).max(5000), updatedAt: stamp, deletedAt: stamp.nullable(),
 }).strict();
+const overviewSchema = z.record(z.enum(types), z.object({
+  label: z.enum(['Favorites', 'Recently watched / finished']),
+  workIds: z.array(id).max(5),
+}).strict());
 export const stateSchema = z.object({
+  overview: overviewSchema.optional(),
   works: z.array(workSchema).max(5000), records: z.array(recordSchema).max(5000),
   events: z.array(eventSchema).max(20000), lists: z.array(listSchema).max(1000), applied: z.array(id).max(100),
 }).strict().superRefine((s, ctx) => {
@@ -206,6 +212,7 @@ export function applyCommand(input: LibraryState, raw: unknown, requestId: strin
     case 'restore': s = structuredClone(command.state); break;
   }
   s.applied = [...input.applied.filter(v => v !== requestId).slice(-99), requestId];
+  delete s.overview; // The public overview is derived from current owner records on every save.
   return stateSchema.parse(s);
 }
 
@@ -216,7 +223,13 @@ export function publishState(s: LibraryState): LibraryState {
   const events = s.events.filter(e => !e.deletedAt && e.visibility === 'public').map(e => { const { source, ...event } = e; void source; return event; });
   const lists = s.lists.filter(l => !l.deletedAt && l.visibility === 'public');
   const ids = new Set([...records.map(r => r.workId), ...events.map(e => e.workId), ...lists.flatMap(l => l.workIds)]);
-  return { works: s.works.filter(w => ids.has(w.id)), records, events, lists, applied: [] };
+  const sharedRecords = new Set(records.map(record => record.workId));
+  const overview = overviewSchema.parse(Object.fromEntries(types.map(type => {
+    const selection = rankOverviewPicks(s, type);
+    const workIds = selection.records.map(record => record.workId).filter(id => sharedRecords.has(id));
+    return [type, { label: workIds.length ? selection.label : 'Recently watched / finished', workIds }];
+  })));
+  return { works: s.works.filter(w => ids.has(w.id)), records, events, lists, applied: [], overview };
 }
 
 export type Filters = { type?: string; q?: string; genre?: string; status?: string; rating?: string; decade?: string; year?: string; sort?: string; list?: string; page?: string; view?: string };

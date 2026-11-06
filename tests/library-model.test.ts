@@ -159,3 +159,29 @@ test('1,000-record browsing paginates consistently, preserves scope and avoids r
   assert.equal(new Set([...first.works, ...second.works].map(w => w.id)).size, 96);
   assert.ok(performance.now() - start < 1500);
 });
+
+test('public overview preserves owner order without publishing private activity or list-only records', () => {
+  let state = emptyState();
+  for (const suffix of ['older', 'newer', 'private', 'removed']) {
+    const title = work(`manual:${suffix}`);
+    state = save(state, title, { status: 'completed', visibility: suffix === 'private' ? 'private' : 'public' });
+    state = applyCommand(state, {
+      op: 'log', work: title, updateRating: false,
+      event: { ...event, id: `event:${suffix}`, workId: title.id, date: suffix === 'newer' ? '2025-03-01' : '2025-02-01' },
+    }, `log-${suffix}`);
+  }
+  state.records.find(record => record.workId === 'manual:removed')!.deletedAt = '2025-04-01T00:00:00.000Z';
+  state.lists.push({ id: 'list:shared', name: 'Shared list', description: '', visibility: 'public', workIds: ['manual:private', 'manual:removed'], updatedAt: '2025-04-01T00:00:00.000Z', deletedAt: null });
+  state.records.find(record => record.workId === 'manual:older')!.updatedAt = '2025-04-01T00:00:00.000Z';
+  state.records.find(record => record.workId === 'manual:newer')!.updatedAt = '2025-03-01T00:00:00.000Z';
+  const expected = ['manual:newer', 'manual:older'];
+  const published = publishState(state);
+  assert.deepEqual(published.events, []);
+  assert.deepEqual(overviewPicks(published, 'movies').records.map(record => record.workId), expected);
+  assert.deepEqual(published.overview?.movies.workIds, expected);
+  assert.deepEqual(backupSchema.parse(exportBackup(published)).state.overview, published.overview);
+
+  const legacy = { ...published, overview: undefined };
+  assert.deepEqual(overviewPicks(legacy, 'movies').records.map(record => record.workId), [...expected].reverse());
+  assert.deepEqual(overviewPicks(publishState(emptyState()), 'movies').records, []);
+});

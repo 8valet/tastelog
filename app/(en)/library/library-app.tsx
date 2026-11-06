@@ -128,11 +128,23 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
     }} /></span><span className="poster-title">{work.title}</span></button>
     <p className="poster-meta">{work.year ?? 'Year unknown'} · {statusText(records.get(work.id), work.type)}</p><Rating rating={records.get(work.id)?.rating} />
   </article>;
-  const navigateFilter = (key: string, value: string) => { const p = new URLSearchParams(params); p.set('view', view === 'diary' ? 'diary' : 'collection'); if (key !== 'page') p.delete('page'); if (key === 'decade') p.delete('year'); if (key === 'year') p.delete('decade'); if (value) p.set(key, value); else p.delete(key); pushLibraryUrl(`${pathname}?${p}`); };
+  const navigateFilter = (key: string, value: string) => {
+    // History updates before useSearchParams rerenders, so read the current URL.
+    const p = new URLSearchParams(window.location.search);
+    p.set('view', p.get('view') === 'diary' ? 'diary' : 'collection');
+    if (key !== 'page') p.delete('page');
+    if (key === 'decade') p.delete('year');
+    if (key === 'year') p.delete('decade');
+    if (value) p.set(key, value);
+    else p.delete(key);
+    pushLibraryUrl(`${pathname}?${p}`);
+  };
   const filters = Object.fromEntries(params);
   const selectedType = types.find(type => type === filters.type);
-  const selectedStatus = filters.status || (filters.list ? 'all' : 'completed');
-  const results = useMemo(() => browse(state, { ...Object.fromEntries(params), status: filters.status || (filters.list ? 'all' : 'completed') }), [state, params, filters.status, filters.list]);
+  const { selectedStatus, results } = useMemo(() => {
+    const status = params.get('status') || (params.get('list') || !owner ? 'all' : 'completed');
+    return { selectedStatus: status, results: browse(state, { ...Object.fromEntries(params), status }) };
+  }, [state, params, owner]);
   const decadeStarts = [...new Set(results.years.map(year => Math.floor(year / 10) * 10))];
   const decadeOptions: [string, string][] = [['', 'Any decade'], ...decadeStarts.map(year => [String(year), `${year}s`] as [string, string]), ...(filters.decade && !decadeStarts.includes(Number(filters.decade)) ? [[filters.decade, `${filters.decade}s`] as [string, string]] : [])];
   const activeFilterChips: [string, string, string][] = [];
@@ -175,6 +187,7 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
           <div className="collection-filter-bar">
             <div className="collection-statuses" role="group" aria-label="Filter by status">
               {statusFilterOptions(filters.type).map(([status, label]) => <button key={status} type="button" aria-pressed={selectedStatus === status} onClick={() => navigateFilter('status', selectedStatus === status ? 'all' : status)}>{label}</button>)}
+              <button type="button" aria-pressed={selectedStatus === 'all'} onClick={() => navigateFilter('status', 'all')}>All statuses</button>
             </div>
             <div className="collection-filter-menus">
               <FieldSelect compact label="Genre" value={filters.genre || ''} options={[['', 'All genres'], ...results.genres.map(([g, n]): [string, string] => [g, `${g} (${n})`]), ...(filters.genre && !results.genres.some(([g]) => g === filters.genre) ? [[filters.genre, `${filters.genre} (0)`] as [string, string]] : [])]} onChange={v => navigateFilter('genre', v)} />
