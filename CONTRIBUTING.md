@@ -2,6 +2,12 @@
 
 Open an issue describing the concrete behavior before proposing major changes. Keep the single-owner model, private/public separation, half-star ratings, and independent diary/current ratings intact.
 
+Develop reusable library changes in TasteLog first. Follow the
+[development plan](docs/development-plan.md); portfolio consumers adopt reviewed,
+pinned stable versions through the [portfolio update process](docs/portfolio-updates.md).
+Keep personal branding, artwork, credentials, and databases outside this source.
+The current feature batch is unreleased; its final scope and version are pending.
+
 Use Node 24 or newer, `npm ci`, then run `npm test`, `npm run lint`, `npm run typecheck`, `npm run build`, and the relevant Playwright tests. New UI flows should work with keyboard input, narrow phones, missing artwork, and reduced motion.
 
 Use synthetic test data. Never include API keys, passwords, cookies, recovery URLs, personal exports, logs from real accounts, or screenshots of private collections in issues, commits, or pull requests. Keep styles in the canonical CSS sources and regenerate the combined file.

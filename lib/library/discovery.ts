@@ -24,6 +24,21 @@ export function browseDiary(state: LibraryState, filters: { q?: string; type?: s
   return { events: events.slice((page - 1) * pageSize, page * pageSize), total: events.length, page, pages };
 }
 export function overviewPicks(state: LibraryState, type: Work['type']) {
+  const published = state.overview?.[type];
+  if (!published) return rankOverviewPicks(state, type);
+
+  const category = new Set(state.works.filter(work => work.type === type).map(work => work.id));
+  const sharedRecords = new Map(state.records
+    .filter(record => !record.deletedAt && record.visibility === 'public' && category.has(record.workId))
+    .map(record => [record.workId, record]));
+  const records = [...new Set(published.workIds)].flatMap(id => {
+    const record = sharedRecords.get(id);
+    return record ? [record] : [];
+  });
+  return { label: published.label, records };
+}
+
+export function rankOverviewPicks(state: LibraryState, type: Work['type']) {
   const overviewPickLimit = 5;
   const ids = new Set(state.works.filter(w => w.type === type).map(w => w.id));
   const records = state.records.filter(r => !r.deletedAt && ids.has(r.workId));

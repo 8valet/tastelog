@@ -22,6 +22,32 @@ async function command(request, cmd) {
   const response = await request.post(`${origin}/api/library`, { headers: { Origin: origin }, data: { revision: current.revision, requestId: crypto.randomUUID(), command: cmd } });
   expect(response.status()).toBe(200); return response.json();
 }
+test('rapid filter changes preserve a cleared genre and browser history', async ({ page }) => {
+  await login(page);
+  await page.goto('/admin/library?view=collection&type=movies&status=all&genre=Drama');
+  const genre = page.getByRole('button', { name: 'Genre: Drama', exact: true });
+  await expect(genre).toBeVisible();
+  await page.evaluate(() => {
+    document.querySelector('.active-filters .chip').click();
+    document.querySelector('.collection-statuses button').click();
+  });
+
+  await expect(page).toHaveURL(/status=completed/);
+  expect(new URL(page.url()).searchParams.get('genre')).toBeNull();
+  expect(new URL(page.url()).searchParams.get('type')).toBe('movies');
+  await expect(genre).toHaveCount(0);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/status=all/);
+  await expect(genre).toHaveCount(0);
+  await page.goBack();
+  await expect(genre).toBeVisible();
+  await page.goForward();
+  await page.goForward();
+  await expect(page).toHaveURL(/status=completed/);
+  await expect(genre).toHaveCount(0);
+});
+
 test('owner logging, privacy, cross-session saving, catalogs fallback, lists, backups and keyboard/mobile UI', async ({ page, browser }) => {
   const anon = await browser.newContext();
   expect((await anon.request.get(`${origin}/api/library/export`)).status()).toBe(401);
