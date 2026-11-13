@@ -82,7 +82,7 @@ export function LibraryRoulette({ state, initialCategory, onViewTitle }: Props) 
       </> : <p className="roulette-stage-empty">{categories.length ? 'Your next pick starts with a plan.' : 'What are you in the mood for?'}</p>}
     </div>
     <div className="roulette-result" role="status" aria-live="polite" aria-atomic="true">
-      {winner ? <><h3>{winner.title}</h3><p>{winner.year ?? 'Year unknown'} · {typeNames[winner.type]}</p></> : <p>{spinning ? 'Picking from your plans…' : !categories.length ? 'Choose at least one category to spin.' : !candidates.length ? 'Add titles to Plan to watch or your games Backlog, then try again.' : 'Every planned title has an equal chance.'}</p>}
+      {winner ? <><h3>{winner.title}</h3><p>{winner.year ?? 'Year unknown'} · {typeNames[winner.type]}</p></> : <p>{spinning ? 'Picking from your plans…' : !categories.length ? 'Choose at least one category to spin.' : !candidates.length ? 'Add titles to a plan or backlog, then try again.' : 'Every planned title has an equal chance.'}</p>}
     </div>
     <div className="roulette-actions">
       <button type="button" className="primary" disabled={!candidates.length || spinning} onClick={spin}>{spinning ? 'Spinning…' : round ? 'Spin again' : 'Spin'}</button>

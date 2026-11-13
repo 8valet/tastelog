@@ -3,7 +3,7 @@ import { Work, workSchema } from './model';
 import { LibraryError } from './server';
 
 export function catalogAvailability() {
-  return { movies: Boolean(process.env.TMDB_READ_TOKEN), tv: Boolean(process.env.TMDB_READ_TOKEN), anime: Boolean(process.env.MAL_CLIENT_ID), games: Boolean(process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET) };
+  return { movies: Boolean(process.env.TMDB_READ_TOKEN), tv: Boolean(process.env.TMDB_READ_TOKEN), anime: Boolean(process.env.MAL_CLIENT_ID), games: Boolean(process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET), comics: false };
 }
 async function request(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, cache: 'no-store', signal: AbortSignal.timeout(9000) });

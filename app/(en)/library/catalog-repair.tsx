@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Command, DiaryEvent, LibraryList, LibraryState, Work, typeNames, types, workSchema } from '../../../lib/library/model';
 import { duplicateCandidates } from '../../../lib/library/discovery';
 import { matchesTitle } from '../../../lib/library/text';
-import { FieldSelect, Stars } from './controls';
+import { FieldSelect, FormatField, Stars } from './controls';
 type Save = (command: Command, message?: string) => Promise<boolean>;
 type Catalogs = Record<Work['type'], boolean>;
 
@@ -30,6 +30,7 @@ export function ImportReview({ state, repair, editEvent, editList }: { state: Li
 
 export function CatalogRepair({ source, state, revision, catalogs, save, busy, done }: { source: Work; state: LibraryState; revision: number; catalogs: Catalogs; save: Save; busy: boolean; done: () => void }) {
   const [metadataType, setMetadataType] = useState(source.type);
+  const [metadataFormat, setMetadataFormat] = useState(source.format || '');
   const [type, setType] = useState(source.type), [query, setQuery] = useState(source.title), [results, setResults] = useState<Work[]>([]), [candidate, setCandidate] = useState<Work | null>(null);
   const [loading, setLoading] = useState(false), [error, setError] = useState(''), [recordFrom, setRecordFrom] = useState<'source' | 'target'>('target'), [approved, setApproved] = useState(false);
   const [prior, setPrior] = useState<LibraryState | null>(null), [cleanupRevision, setCleanupRevision] = useState<number | null>(null);
@@ -47,10 +48,11 @@ export function CatalogRepair({ source, state, revision, catalogs, save, busy, d
     {!prior && <>
       <details className="review-options"><summary>Edit title metadata</summary><form onSubmit={async e => {
         e.preventDefault(); const f = new FormData(e.currentTarget); setError('');
-        try { const work = workSchema.parse({ ...source, title: String(f.get('title')), type: metadataType, year: f.get('year') ? Number(f.get('year')) : null, poster: String(f.get('poster') || ''), genres: String(f.get('genres') || '').split(',').map(g => g.trim()).filter(Boolean), aliases: String(f.get('aliases') || '').split('\n').map(a => a.trim()).filter(Boolean), summary: String(f.get('summary') || '') }); if (await save({ op: 'metadata', work }, 'Title metadata updated. Ratings and history kept.')) done(); }
+        try { const work = workSchema.parse({ ...source, title: String(f.get('title')), type: metadataType, format: metadataType === 'comics' ? metadataFormat || undefined : undefined, year: f.get('year') ? Number(f.get('year')) : null, poster: String(f.get('poster') || ''), genres: String(f.get('genres') || '').split(',').map(g => g.trim()).filter(Boolean), aliases: String(f.get('aliases') || '').split('\n').map(a => a.trim()).filter(Boolean), summary: String(f.get('summary') || '') }); if (await save({ op: 'metadata', work }, 'Title metadata updated. Ratings and history kept.')) done(); }
         catch { setError('Check the title, year, genres, alternate names and HTTPS cover URL. Nothing was saved.'); }
       }}><label className="form-field">Title<input name="title" required maxLength={500} defaultValue={source.title} /></label>
         {source.provider === 'manual' && <FieldSelect label="Category" value={metadataType} options={types.map(t => [t, typeNames[t]])} onChange={v => setMetadataType(v as Work['type'])} />}
+        {metadataType === 'comics' && <FormatField value={metadataFormat} onChange={setMetadataFormat} />}
         <label className="form-field">Release year<input name="year" type="number" min="1800" max="2200" defaultValue={source.year ?? ''} /></label>
         <label className="form-field">Cover URL<input name="poster" maxLength={1500} defaultValue={source.poster} /></label>
         <label className="form-field">Genres · separated by commas<input name="genres" maxLength={2400} defaultValue={source.genres.join(', ')} /></label>

@@ -142,6 +142,8 @@ export function LibraryStats({ state, period, years, onPeriodChange, type }: Pro
   const titleScope = finishedOnly ? 'finished' : 'started or finished';
   const categoryCount = type === 'games'
     ? `${experiencedTotal} ${experiencedTotal === 1 ? 'game played' : 'games played'}`
+    : type === 'comics'
+      ? `${experiencedTotal} ${experiencedTotal === 1 ? 'title read' : 'titles read'}`
     : `${experiencedTotal} ${experiencedTotal === 1 ? 'title watched' : 'titles watched'}`;
   const summary = type
     ? `${categoryCount} · ${titleScope} · ${periodName}`
@@ -154,7 +156,7 @@ export function LibraryStats({ state, period, years, onPeriodChange, type }: Pro
   const metricLabel = type
     ? type === 'games'
       ? finishedOnly ? 'games finished' : 'games played'
-      : `${type === 'anime' ? 'anime titles' : typeNames[type].toLowerCase()} ${finishedOnly ? 'finished' : 'watched'}`
+      : `${type === 'anime' ? 'anime titles' : typeNames[type].toLowerCase()} ${finishedOnly ? 'finished' : type === 'comics' ? 'read' : 'watched'}`
     : 'titles';
   const metricContext = type
     ? periodName === 'Lifetime' ? 'Lifetime' : `in ${periodName}`

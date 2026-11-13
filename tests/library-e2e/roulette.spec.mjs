@@ -38,8 +38,8 @@ test('owner roulette: full planned pool, fair reel landing, keyboard, mobile and
     const dialog = page.getByRole('dialog', { name: 'Pick for me', exact: true });
     const category = name => dialog.getByRole('button', { name, exact: true });
     await expect(dialog.getByRole('button', { name: 'Spin', exact: true })).toBeDisabled();
-    await expect(dialog.getByText('Add titles to Plan to watch or your games Backlog, then try again.')).toBeVisible();
-    for (const name of ['Movies', 'TV shows', 'Anime', 'Games']) await category(name).click();
+    await expect(dialog.getByText('Add titles to a plan or backlog, then try again.')).toBeVisible();
+    for (const name of ['Movies', 'TV shows', 'Anime', 'Games', 'Manga & Comics']) await category(name).click();
     await expect(dialog.getByText('Choose at least one category to spin.')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(trigger).toBeFocused();
