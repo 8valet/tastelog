@@ -1,7 +1,8 @@
 # Library development and planned release
 
-Recorded 2026-10-28. Status: collecting features for one planned release.
-The proposed release is v1.1.0. Publication is tracked by the GitHub release tag.
+Recorded 2026-11-16. Release scope finalized as v1.2.0.
+This release adds the Manga & Comics category, editable reading formats, and
+MyAnimeList manga catalog search. Publication is tracked by the GitHub release tag.
 
 ## Source of truth
 
