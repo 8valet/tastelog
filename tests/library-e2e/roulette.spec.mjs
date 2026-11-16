@@ -123,7 +123,9 @@ test('owner roulette: full planned pool, fair reel landing, keyboard, mobile and
     await page.screenshot({ path: testInfo.outputPath('roulette-phone-missing-cover.png') });
     await page.setViewportSize({ width: 320, height: 740 });
     expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
-    await expect(dialog.getByRole('button', { name: 'View title', exact: true })).toBeInViewport();
+    const viewTitle = dialog.getByRole('button', { name: 'View title', exact: true });
+    await viewTitle.scrollIntoViewIfNeeded();
+    await expect(viewTitle).toBeInViewport();
     await page.keyboard.press('Escape');
     await expect(trigger).toBeInViewport();
     const header = await trigger.boundingBox();

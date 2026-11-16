@@ -35,9 +35,9 @@
     "typescript": "6.0.3"
   },
   "name": "tastelog",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "Your taste, logged. A self-hosted library for movies, TV, anime and games.",
+  "description": "Your taste, logged. A self-hosted library for movies, TV, anime, manga, comics, and games.",
   "license": "MIT",
   "engines": {
     "node": ">=24"
