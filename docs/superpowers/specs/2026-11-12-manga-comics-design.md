@@ -17,4 +17,4 @@ Add one place in TasteLog to track manga, manhwa, and comics, with editable form
 - One Manga & Comics category plus editable format labels: selected because it groups browsing and preserves format distinctions while allowing customization.
 
 ## Implementation choices
-Persist format on each work, make it optional for existing and imported records, and provide the built-in labels plus a custom entry in the title editor. No external catalog integration is included; titles can be entered manually. The builder will adapt all category-dependent browsing and forms, maintain backup compatibility, and add focused synthetic regressions.
+Persist format on each work, make it optional for existing and imported records, and provide built-in labels plus a custom entry in the title editor. Use MyAnimeList's manga catalog when its credentials are configured, and keep manual entry available for other comics and missing titles. The builder will adapt all category-dependent browsing and forms, maintain backup compatibility, and add focused synthetic regressions.

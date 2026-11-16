@@ -9,7 +9,7 @@ test('Manga & Comics titles can be entered with a custom format and browsed by c
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('combobox', { name: 'Category', exact: true }).click();
   await page.getByRole('option', { name: 'Manga & Comics', exact: true }).click();
-  await expect(dialog.getByRole('button', { name: 'Search catalog', exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Search catalog', exact: true })).toHaveCount(1);
   await dialog.getByRole('button', { name: 'Can’t find it? Add manually', exact: false }).click();
   await dialog.getByLabel('Title', { exact: true }).fill('Synthetic Moon Archive');
   await dialog.getByRole('combobox', { name: 'Format', exact: true }).click();

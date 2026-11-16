@@ -3,7 +3,7 @@ import { Work, workSchema } from './model';
 import { LibraryError } from './server';
 
 export function catalogAvailability() {
-  return { movies: Boolean(process.env.TMDB_READ_TOKEN), tv: Boolean(process.env.TMDB_READ_TOKEN), anime: Boolean(process.env.MAL_CLIENT_ID), games: Boolean(process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET), comics: false };
+  return { movies: Boolean(process.env.TMDB_READ_TOKEN), tv: Boolean(process.env.TMDB_READ_TOKEN), anime: Boolean(process.env.MAL_CLIENT_ID), games: Boolean(process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET), comics: Boolean(process.env.MAL_CLIENT_ID) };
 }
 async function request(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, cache: 'no-store', signal: AbortSignal.timeout(9000) });
@@ -20,12 +20,15 @@ function tmdbWork(t: TmdbTitle, type: 'movies' | 'tv', genres: { id: number; nam
     genres: (t.genres || genres.filter(g => t.genre_ids?.includes(g.id))).map(g => g.name), episodes: t.number_of_episodes ?? null, seasons: t.number_of_seasons ?? null,
     summary: t.overview || '', provider: 'tmdb', providerId: String(t.id), sourceUrl: `https://www.themoviedb.org/${kind}/${t.id}` });
 }
-type MalTitle = { id: number; title: string; main_picture?: { large?: string; medium?: string }; start_date?: string; synopsis?: string; genres?: { name: string }[]; num_episodes?: number; alternative_titles?: { en?: string; ja?: string; synonyms?: string[] } };
+type MalTitle = { id: number; title: string; main_picture?: { large?: string; medium?: string }; start_date?: string; synopsis?: string; genres?: { name: string }[]; num_episodes?: number; media_type?: string; alternative_titles?: { en?: string; ja?: string; synonyms?: string[] } };
 const malFields = 'id,title,main_picture,start_date,synopsis,genres,num_episodes,alternative_titles';
+const malMangaFields = 'id,title,main_picture,start_date,synopsis,genres,media_type,alternative_titles';
 async function mal(path: string) { return request(`https://api.myanimelist.net/v2/${path}`, { headers: { 'X-MAL-CLIENT-ID': process.env.MAL_CLIENT_ID! } }); }
-function malWork(t: MalTitle): Work {
-  return workSchema.parse({ id: `mal:anime:${t.id}`, type: 'anime', title: t.title, aliases: [...new Set([t.alternative_titles?.en, t.alternative_titles?.ja, ...(t.alternative_titles?.synonyms || [])].filter(Boolean))], year: year(t.start_date), poster: t.main_picture?.large || t.main_picture?.medium || '', genres: t.genres?.map(g => g.name) || [],
-    episodes: t.num_episodes || null, seasons: null, summary: t.synopsis || '', provider: 'mal', providerId: String(t.id), sourceUrl: `https://myanimelist.net/anime/${t.id}` });
+function malWork(t: MalTitle, type: 'anime' | 'comics' = 'anime'): Work {
+  const mediaFormats: Record<string, string> = { manga: 'Manga', manhwa: 'Manhwa', manhua: 'Manhua', oel: 'Comics', light_novel: 'Light Novel', novel: 'Novel', one_shot: 'One Shot', doujinshi: 'Doujinshi' };
+  const path = type === 'comics' ? 'manga' : 'anime';
+  return workSchema.parse({ id: `mal:${path}:${t.id}`, type, ...(type === 'comics' && t.media_type && mediaFormats[t.media_type] ? { format: mediaFormats[t.media_type] } : {}), title: t.title, aliases: [...new Set([t.alternative_titles?.en, t.alternative_titles?.ja, ...(t.alternative_titles?.synonyms || [])].filter(Boolean))], year: year(t.start_date), poster: t.main_picture?.large || t.main_picture?.medium || '', genres: t.genres?.map(g => g.name) || [],
+    episodes: type === 'anime' ? t.num_episodes || null : null, seasons: null, summary: t.synopsis || '', provider: 'mal', providerId: String(t.id), sourceUrl: `https://myanimelist.net/${path}/${t.id}` });
 }
 type Game = { id: number; name: string; first_release_date?: number; summary?: string; cover?: { image_id: string }; genres?: { name: string }[]; url?: string; alternative_names?: { name: string }[] };
 let twitchToken: { value: string; expires: number } | null = null;
@@ -51,9 +54,11 @@ export async function searchCatalog(type: Work['type'], query: string): Promise<
       const [results, genres] = await Promise.all([tmdb(`search/${kind}?query=${encodeURIComponent(query)}&include_adult=false`), tmdb(`genre/${kind}/list`)]);
       return (results.results as TmdbTitle[]).slice(0, 20).map(t => tmdbWork(t, type, genres.genres));
     }
-    if (type === 'anime') {
-      const result = await mal(`anime?q=${encodeURIComponent(query)}&limit=20&fields=${malFields}`);
-      return (result.data as { node: MalTitle }[]).map(t => malWork(t.node));
+    if (type === 'anime' || type === 'comics') {
+      const endpoint = type === 'comics' ? 'manga' : 'anime';
+      const fields = type === 'comics' ? malMangaFields : malFields;
+      const result = await mal(`${endpoint}?q=${encodeURIComponent(query)}&limit=20&fields=${fields}`);
+      return (result.data as { node: MalTitle }[]).map(t => malWork(t.node, type));
     }
     // JSON quoting escapes quotes, slashes and newlines rather than interpolating query syntax.
     const result = await igdb(`${gameFields} search ${JSON.stringify(query)}; limit 20;`);
@@ -65,7 +70,11 @@ export async function catalogDetails(type: Work['type'], providerId: string): Pr
   if (!catalogAvailability()[type]) throw new LibraryError('This catalog is not connected.', 503);
   try {
     if (type === 'movies' || type === 'tv') return tmdbWork(await tmdb(`${type === 'movies' ? 'movie' : 'tv'}/${providerId}`), type);
-    if (type === 'anime') return malWork(await mal(`anime/${providerId}?fields=${malFields}`));
+    if (type === 'anime' || type === 'comics') {
+      const endpoint = type === 'comics' ? 'manga' : 'anime';
+      const fields = type === 'comics' ? malMangaFields : malFields;
+      return malWork(await mal(`${endpoint}/${providerId}?fields=${fields}`), type);
+    }
     const results = await igdb(`${gameFields} where id = ${providerId}; limit 1;`);
     if (!results[0]) throw new LibraryError('That catalog title was not found.', 404);
     return gameWork(results[0]);

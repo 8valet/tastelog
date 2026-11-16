@@ -4,7 +4,7 @@
 
 **Goal:** Add a shared Manga & Comics category with per-title editable format labels for manga, manhwa, comics, and custom formats.
 
-**Architecture:** Extend the existing Work type and schema with a new category plus an optional format field; optionality keeps legacy records and version-1 backups valid. Reuse existing category-driven browsing and manual entry, and show/edit the format in title details and metadata repair. Manga & Comics stays manual-entry only because no compatible catalog is configured.
+**Architecture:** Extend the existing Work type and schema with a new category plus an optional format field; optionality keeps legacy records and version-1 backups valid. Reuse existing category-driven browsing and manual entry, and show/edit the format in title details and metadata repair. Search MyAnimeList's manga catalog when configured, with manual entry as the fallback for other comics and missing titles.
 
 **Tech Stack:** Next.js 16.3.8, React 19, TypeScript, Zod 4, Node test runner, CSS build script.
 
@@ -22,7 +22,7 @@
 - Legacy version-1 backups with no format remain importable — model compatibility test.
 - Custom format labels are trimmed, bounded, and optional — schema and model test.
 - Public projection carries format only for explicitly shared works — projection test.
-- Manga & Comics does not trigger a catalog request without a configured provider — manual-entry UI check.
+- Manga & Comics uses the MyAnimeList manga endpoints when configured and keeps manual entry available.
 - Format survives backup export/import and CSV export — export regression.
 
 ---
@@ -63,10 +63,10 @@
 **Interfaces:**
 - Consumes: `types`, `typeNames`, `Work['type']`, and optional `Work['format']` from Task 1.
 - Produces: manual Manga & Comics creation with a format selector and a custom-label option; detail/edit display of the saved format.
-- Also produces: reading-specific statuses and labels; category included in overview, stats, and roulette; catalog availability explicitly false.
+- Also produces: reading-specific statuses and labels; category included in overview, stats, and roulette; catalog availability follows the MyAnimeList client ID.
 
 - [x] Add UI coverage for selecting Manga & Comics, saving a custom format, rendering/editing it, reading status choices, overview, and category browsing.
-- [x] Add the category to manual add, collection filters, diary category selection, stats and roulette using existing `types` iteration; verify search is unavailable for this category and manual entry remains available.
+- [x] Add the category to manual add, collection filters, diary category selection, stats and roulette using existing `types` iteration; keep manual entry available alongside catalog search.
 - [x] Add a format selector with Manga, Manhwa, Comics, Custom, and No format; accept trimmed custom text within the schema limit, preserve values during unrelated metadata edits, and allow clearing a saved format.
 - [x] Display format with category in title details and metadata repair; do not present it as a story genre.
 - [x] Regenerate canonical CSS if changed; run focused tests plus `npm run typecheck` and `npm run lint`.
