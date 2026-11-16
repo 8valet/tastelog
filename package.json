@@ -8,8 +8,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "build:library-css": "node scripts/build-library-css.mjs",
-    "test:library": "node --test tests/library-model.test.ts tests/library-trakt.test.ts tests/library-database.test.mjs tests/library-artwork.test.ts tests/config.test.ts",
+    "test:library": "node --import=./scripts/typescript-test-register.mjs --test tests/library-model.test.ts tests/library-trakt.test.ts tests/library-database.test.mjs tests/library-artwork.test.ts tests/library-performance.test.ts tests/library-index.test.mjs tests/config.test.ts",
     "test:library:e2e": "playwright test --config playwright.library.config.mjs",
+    "bench:library-index": "node scripts/benchmark-library-index.mjs",
     "test": "npm run test:library",
     "check:release": "node scripts/check-release.mjs"
   },

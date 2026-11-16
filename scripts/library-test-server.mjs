@@ -13,6 +13,13 @@ let recoveryUsed = false;
 const user = { id: ownerId, aud: 'authenticated', role: 'authenticated', email: 'owner@library.test', email_confirmed_at: new Date().toISOString(), app_metadata: { provider: 'email' }, user_metadata: {}, created_at: new Date().toISOString() };
 const token = (subject = ownerId) => { const content = [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: subject, aud: 'authenticated', role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')].join('.'); return `${content}.${createHmac('sha256', secret).update(content).digest('base64url')}`; };
 const authorized = req => { try { const t = (req.headers.authorization || '').replace(/^Bearer /, ''), [h, p, signature] = t.split('.'); const expected = createHmac('sha256', secret).update(`${h}.${p}`).digest('base64url'); return signature && signature.length === expected.length && timingSafeEqual(Buffer.from(signature), Buffer.from(expected)); } catch { return false; } };
+const authenticatedSubject = req => {
+  if (!authorized(req)) return '';
+  try {
+    const payload = req.headers.authorization.replace(/^Bearer /, '').split('.')[1];
+    return JSON.parse(Buffer.from(payload, 'base64url').toString()).sub || '';
+  } catch { return ''; }
+};
 const server = createServer(async (req, res) => {
   const send = (value, code = 200) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
   try {
@@ -38,19 +45,45 @@ const server = createServer(async (req, res) => {
       return send(user);
     }
     if (url.pathname === '/auth/v1/logout') { res.writeHead(204); return res.end(); }
+    if (['/rest/v1/rpc/library_read_preview', '/rest/v1/rpc/library_browse_index'].includes(url.pathname)) {
+      const browsing = url.pathname.endsWith('library_browse_index');
+      const result = await db.transaction(async tx => {
+        await tx.exec(`set local role ${authenticatedSubject(req) ? 'authenticated' : 'anon'}`);
+        await tx.query("select set_config('request.jwt.claim.sub', $1, true)", [authenticatedSubject(req)]);
+        return browsing
+          ? tx.query('select public.library_browse_index($1,$2,$3) as payload', [body.p_owner, body.p_scope, body.p_filters || {}])
+          : tx.query('select public.library_read_preview($1,$2) as payload', [body.p_owner, body.p_scope]);
+      });
+      return send(result.rows[0].payload);
+    }
     if (url.pathname === '/rest/v1/rpc/library_save') {
       const result = await db.transaction(async tx => {
-        await tx.exec(`set local role ${authorized(req) ? 'authenticated' : 'anon'}`);
-        await tx.query("select set_config('request.jwt.claim.sub', $1, true)", [authorized(req) ? ownerId : '']);
+        await tx.exec(`set local role ${authenticatedSubject(req) ? 'authenticated' : 'anon'}`);
+        await tx.query("select set_config('request.jwt.claim.sub', $1, true)", [authenticatedSubject(req)]);
         return tx.query('select public.library_save($1,$2,$3) as revision', [body.expected_revision, body.next_document, body.public_document]);
       });
       return send(result.rows[0].revision);
     }
     const table = url.pathname.split('/').pop();
+    if (table === 'library_read_works' && req.method === 'GET') {
+      const result = await db.transaction(async tx => {
+        await tx.exec(`set local role ${authenticatedSubject(req) ? 'authenticated' : 'anon'}`);
+        await tx.query("select set_config('request.jwt.claim.sub', $1, true)", [authenticatedSubject(req)]);
+        return tx.query(
+          'select work,record from public.library_read_works where owner_id=$1 and scope=$2 and work_id=$3',
+          [
+            url.searchParams.get('owner_id')?.replace(/^eq\./, '') || ownerId,
+            url.searchParams.get('scope')?.replace(/^eq\./, '') || 'public',
+            url.searchParams.get('work_id')?.replace(/^eq\./, '') || '',
+          ],
+        );
+      });
+      return send(result.rows);
+    }
     if (['library_state', 'library_public', 'library_trakt'].includes(table) && req.method === 'GET') {
       const result = await db.transaction(async tx => {
-        await tx.exec(`set local role ${authorized(req) ? 'authenticated' : 'anon'}`);
-        await tx.query("select set_config('request.jwt.claim.sub', $1, true)", [authorized(req) ? ownerId : '']);
+        await tx.exec(`set local role ${authenticatedSubject(req) ? 'authenticated' : 'anon'}`);
+        await tx.query("select set_config('request.jwt.claim.sub', $1, true)", [authenticatedSubject(req)]);
         return tx.query(`select ${table === 'library_trakt' ? '*' : 'document,revision'} from public.${table} where owner_id=$1`, [url.searchParams.get('owner_id')?.replace(/^eq\./, '') || ownerId]);
       });
       return send(result.rows);

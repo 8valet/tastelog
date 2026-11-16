@@ -173,7 +173,7 @@ test('owner logging, privacy, cross-session saving, catalogs fallback, lists, ba
 
   // Failed/expired saves leave a manual draft in the form and never claim success.
   await page.getByRole('button', { name: 'Add / Log', exact: true }).click(); await page.getByRole('button', { name: /Can’t find it/ }).click(); await page.getByLabel('Title', { exact: true }).fill('Unsaved manual title'); await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await page.context().clearCookies(); await page.getByRole('button', { name: 'Save entry', exact: true }).click(); await expect(page.getByRole('dialog').getByText('Unsaved manual title', { exact: true })).toBeVisible(); await expect(page.getByRole('dialog').getByText('Sign in as the library owner to continue.', { exact: true })).toBeVisible();
+  await page.context().clearCookies(); await page.getByRole('button', { name: 'Save entry', exact: true }).click(); await expect(page.getByRole('dialog').getByText('Unsaved manual title', { exact: true })).toBeVisible(); await expect(page.getByRole('dialog').getByText('Your owner session expired. Sign in again before editing.', { exact: true })).toBeVisible();
   await anon.close(); await device2.close();
 });
 

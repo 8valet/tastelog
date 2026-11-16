@@ -14,7 +14,8 @@ import { LibraryStats, type StatsPeriod } from './library-stats';
 import { LibraryRoulette } from './library-roulette';
 
 type Snapshot = { state: LibraryState; revision: number; owner: boolean };
-type Props = { initial: Snapshot; configured: boolean; catalogs: Record<Work['type'], boolean>; initialError?: string; admin?: boolean };
+type BrowsePage = ReturnType<typeof browse>;
+type Props = { initial: Snapshot; initialBrowse?: BrowsePage; preview?: boolean; configured: boolean; catalogs: Record<Work['type'], boolean>; initialError?: string; admin?: boolean };
 type Save = (command: Command, message?: string) => Promise<boolean>;
 type LibraryViewLinkProps = Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> & { href: string };
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -54,9 +55,13 @@ export default function LibraryApp(props: Props) {
   return <RatingScaleProvider><LibraryAppContent {...props} /></RatingScaleProvider>;
 }
 
-function LibraryAppContent({ initial, configured, catalogs, initialError = '', admin = false }: Props) {
+function LibraryAppContent({ initial, initialBrowse, preview = false, configured, catalogs, initialError = '', admin = false }: Props) {
   const { scale: ratingScale } = useRatingScale();
   const [snapshot, setSnapshot] = useState(initial), [error, setError] = useState(initialError), [notice, setNotice] = useState('');
+  const [fullSnapshot, setFullSnapshot] = useState(!preview);
+  const [detailRecord, setDetailRecord] = useState<LibraryRecord | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
   const [busy, setBusy] = useState(false), [detail, setDetail] = useState<Work | null>(null), [log, setLog] = useState<Work | 'search' | null>(null);
   const [editingEvent, setEditingEvent] = useState<DiaryEvent | null>(null), [editingList, setEditingList] = useState<LibraryList | 'new' | null>(null);
   const [repair, setRepair] = useState<Work | null>(null);
@@ -65,6 +70,7 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
   const pending = useRef<{ key: string; id: string } | null>(null);
   const noticeTimer = useRef<number | null>(null);
   const focusReturn = useRef<HTMLElement | null>(null);
+  const detailRequest = useRef(0);
   useEffect(() => () => { if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current); }, []);
   const clearNotice = () => {
     if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current);
@@ -97,32 +103,109 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
   const href = (next: string, values: Record<string, string> = {}) => `${pathname}?${new URLSearchParams({ view: next, ...values })}`;
   const open = (fn: () => void) => { focusReturn.current = document.activeElement as HTMLElement; fn(); };
   const close = (fn: () => void) => { fn(); requestAnimationFrame(() => focusReturn.current?.focus()); };
+  const loadFull = async (): Promise<Snapshot> => {
+    if (fullSnapshot) return snapshot;
+    const response = await fetch('/api/library', { cache: 'no-store' });
+    const data = await response.json() as Snapshot & { error?: string };
+    if (!response.ok) throw new Error(data.error || 'The owner workspace could not be loaded.');
+    if (owner && !data.owner) throw new Error('Your owner session expired. Sign in again before editing.');
+    setSnapshot(data);
+    setFullSnapshot(true);
+    return data;
+  };
+  const showWork = (work: Work, preserveReturnFocus = false) => {
+    const requestId = ++detailRequest.current;
+    // When opening a title from roulette, keep the original roulette trigger
+    // as the focus return target; its View title button is about to unmount.
+    if (preserveReturnFocus) setDetail(work);
+    else open(() => setDetail(work));
+    setDetailRecord(null);
+    setDetailError('');
+    setDetailLoading(true);
+    // Fetch one complete work and its private record on demand, without the
+    // full 1.4 MB library. Owner editing waits until the record arrives.
+    void fetch(`/api/library?work=${encodeURIComponent(work.id)}`, { cache: 'no-store' })
+      .then(async response => {
+        const data = await response.json() as { work?: Work; record?: LibraryRecord | null; error?: string };
+        if (!response.ok) throw new Error(data.error || 'Title details could not be loaded.');
+        return data;
+      })
+      .then(data => {
+        if (requestId !== detailRequest.current) return;
+        if (data.work) {
+          setDetail(current => current?.id === work.id ? data.work! : current);
+          setDetailRecord(data.record || null);
+        }
+      })
+      .catch(e => { if (requestId === detailRequest.current) setDetailError(e instanceof Error ? e.message : 'Title details could not be loaded.'); })
+      .finally(() => { if (requestId === detailRequest.current) setDetailLoading(false); });
+  };
   const refresh = async () => {
-    try { const response = await fetch('/api/library', { cache: 'no-store' }); const data = await response.json(); if (!response.ok) throw new Error(data.error); if (owner && !data.owner) throw new Error('Your session expired. Sign in again in a new tab, then retry. Your draft is still here.'); setSnapshot(data); setError(''); return true; }
+    try {
+      const response = await fetch('/api/library', { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      if (owner && !data.owner) throw new Error('Your session expired. Sign in again in a new tab, then retry. Your draft is still here.');
+      setSnapshot(data); setFullSnapshot(true); setBrowsePages({}); setError(''); return true;
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'The library could not be refreshed.'); return false; }
   };
+  useEffect(() => {
+    if (!owner || fullSnapshot || view !== 'settings') return;
+    const controller = new AbortController();
+    fetch('/api/library', { cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok || !data.owner) throw new Error(data.error || 'Your session expired.');
+        return data as Snapshot;
+      })
+      .then(data => { if (!controller.signal.aborted) { setSnapshot(data); setFullSnapshot(true); } })
+      .catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Unable to load owner settings.'); });
+    return () => controller.abort();
+  }, [owner, fullSnapshot, view]);
   const save: Save = async (command, message = 'Saved to your library.') => {
     if (busy) return false;
     const key = JSON.stringify(command);
     if (pending.current?.key !== key) pending.current = { key, id: crypto.randomUUID() };
-    const previous = snapshot;
+    let previous = snapshot;
     const requestId = pending.current.id;
     setBusy(true); setError(''); clearNotice();
     try {
-      const nextState = applyCommand(snapshot.state, command, requestId);
-      setSnapshot({ ...snapshot, state: nextState });
-      const response = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision: snapshot.revision, requestId, command }) });
+      // Preview documents intentionally omit notes/descriptions and must NEVER
+      // be used as the input of a canonical full-document mutation.
+      previous = await loadFull();
+      if (!fullSnapshot && previous.revision !== snapshot.revision) {
+        throw new Error('Your library changed on another device. Review the latest data before saving.');
+      }
+      // Add/Log can select a work from the lightweight preview. Never let
+      // empty preview-only fields overwrite canonical metadata on save.
+      let writeCommand = command;
+      if (command.op === 'save' || command.op === 'log') {
+        const canonical = previous.state.works.find(work => work.id === command.work.id);
+        if (canonical) {
+          writeCommand = { ...command, work: {
+            ...command.work,
+            summary: command.work.summary || canonical.summary,
+            sourceUrl: command.work.sourceUrl || canonical.sourceUrl,
+            aliases: command.work.aliases?.length ? command.work.aliases : canonical.aliases,
+          } };
+        }
+      }
+      const nextState = applyCommand(previous.state, writeCommand, requestId);
+      setSnapshot({ ...previous, state: nextState });
+      const response = await fetch('/api/library', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision: previous.revision, requestId, command: writeCommand }) });
       const data = await response.json(); if (!response.ok) throw new Error(data.error);
       if (data.owner !== true || !Number.isInteger(data.revision)) throw new Error('The save could not be confirmed. Refresh the library before retrying.');
       if (data.revision !== previous.revision + 1) {
         if (!await refresh()) throw new Error('The save finished, but the latest library could not be refreshed.');
       } else setSnapshot(current => ({ ...current, revision: data.revision }));
+      setBrowsePages({}); setDetailRecord(null);
       pending.current = null; setUndo(null); showNotice(message); return true;
     } catch (e) { setSnapshot(previous); setError(e instanceof Error ? e.message : 'Saving failed. Your input is still here.'); return false; }
     finally { setBusy(false); }
   };
   const poster = (work: Work, index = 4, eager = view === 'collection' && index < 3) => <article className="poster-item" key={work.id}>
-    <button className="poster-button" onClick={() => open(() => setDetail(work))}><span className="poster-frame" data-media-type={work.type}><Cover work={work} eager={eager} onImageLoad={image => {
+    <button className="poster-button" onClick={() => showWork(work)}><span className="poster-frame" data-media-type={work.type}><Cover work={work} eager={eager} onImageLoad={image => {
       if (work.type !== 'anime' || !image.naturalWidth || !image.naturalHeight) return;
       const frame = image.closest<HTMLElement>('.poster-frame');
       if (frame) frame.style.aspectRatio = `${image.naturalWidth} / ${image.naturalHeight}`;
@@ -142,10 +225,56 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
   };
   const filters = Object.fromEntries(params);
   const selectedType = types.find(type => type === filters.type);
-  const { selectedStatus, results } = useMemo(() => {
-    const status = params.get('status') || (params.get('list') || !owner ? 'all' : 'completed');
-    return { selectedStatus: status, results: browse(state, { ...Object.fromEntries(params), status }) };
-  }, [state, params, owner]);
+  const selectedStatus = filters.status || (filters.list || !owner ? 'all' : 'completed');
+  // Public collection pages request only the current 24 matching titles. Owner
+  // pages retain the full local snapshot for optimistic edits and backups.
+  const paramsString = params.toString();
+  const query = new URLSearchParams(paramsString);
+  query.set('browse', '1');
+  query.set('status', selectedStatus);
+  const browseQuery = query.toString();
+  // Cache only requested pages, never the private full snapshot. Changing
+  // filters or returning to a page does not re-download the entire library.
+  const [browsePages, setBrowsePages] = useState<Record<string, BrowsePage>>(
+    () => initialBrowse ? { [browseQuery]: initialBrowse } : {},
+  );
+  const cachedPage = browsePages[browseQuery];
+  const [browseFailedKey, setBrowseFailedKey] = useState<string | null>(null);
+  const browseBusy = configured && view === 'collection' && !cachedPage && browseFailedKey !== browseQuery;
+  useEffect(() => {
+    if (!configured || view !== 'collection' || cachedPage || browseFailedKey === browseQuery) return;
+    const controller = new AbortController();
+    fetch(`/api/library?${browseQuery}`, { cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Collection request failed.');
+        return data as BrowsePage;
+      })
+      .then(data => {
+        if (!controller.signal.aborted) {
+          setBrowsePages(current => Object.fromEntries([
+            ...Object.entries(current).filter(([key]) => key !== browseQuery).slice(-11),
+            [browseQuery, data],
+          ]));
+          setBrowseFailedKey(null);
+          setError('');
+        }
+      })
+      .catch(error => {
+        if (!controller.signal.aborted) {
+          setBrowseFailedKey(browseQuery);
+          setError(error instanceof Error ? error.message : 'Collection request failed.');
+        }
+      });
+    return () => controller.abort();
+  }, [configured, view, browseQuery, cachedPage, browseFailedKey]);
+  // SQL owns the normal collection pagination. During an owner mutation,
+  // however, show the already-loaded full optimistic snapshot immediately
+  // instead of stale server page cards until the write finishes.
+  const optimisticPage: BrowsePage | undefined = owner && busy && fullSnapshot
+    ? browse(state, { ...Object.fromEntries(params), status: selectedStatus }, 24)
+    : undefined;
+  const results: BrowsePage = optimisticPage || cachedPage || { works: [], total: 0, page: 1, pages: 1, genres: [], years: [] };
   const decadeStarts = [...new Set(results.years.map(year => Math.floor(year / 10) * 10))];
   const decadeOptions: [string, string][] = [['', 'Any decade'], ...decadeStarts.map(year => [String(year), `${year}s`] as [string, string]), ...(filters.decade && !decadeStarts.includes(Number(filters.decade)) ? [[filters.decade, `${filters.decade}s`] as [string, string]] : [])];
   const activeFilterChips: [string, string, string][] = [];
@@ -165,7 +294,7 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
     </div></header>
     <main id="library-main" tabIndex={-1}>
       <section className="profile"><div className="profile-identity"><div><h1>{libraryConfig.name}</h1><p>{libraryConfig.description}</p></div></div><div className="profile-actions"><span>{owner ? 'Private owner workspace' : 'Published collection'}</span><Link href="/library">Public library <Icon name="arrow" /></Link></div></section>
-      {error && <div className="save-error"><ErrorText value={error} />{configured && <button className="secondary" onClick={refresh}>Refresh library</button>}</div>}
+      {error && <div className="save-error"><ErrorText value={error} />{configured && <button className="secondary" onClick={view === 'collection' ? () => setBrowseFailedKey(null) : refresh}>Refresh library</button>}</div>}
       {!configured ? <Setup admin={admin} /> : admin && !owner ? <Login /> : <>
         {view === 'overview' && <div className="overview-layout"><div>
           <LibraryStats state={state} period={statsPeriod} years={statsYears} onPeriodChange={setStatsPeriod} />
@@ -178,7 +307,7 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
             const selection = overviewPicks(state, type), picks = selection.records;
             return <section className="section" key={type}><div className="section-heading"><div><h2>{typeNames[type]}</h2><p className="muted">{selection.label === 'Favorites' ? 'Favorites' : type === 'games' ? 'Recently finished' : type === 'comics' ? 'Recently read' : 'Recently watched'}</p></div><LibraryViewLink href={href('collection', { type })}>View all</LibraryViewLink></div><div className="poster-grid">{picks.map((r, i) => poster(getWork(r.workId), i, type === 'movies' && i < 3))}</div>{!picks.length && <p className="section-empty">{owner ? `Your ${typeNames[type].toLowerCase()} will appear here after you add them.` : 'No published titles yet.'}</p>}</section>;
           })}
-        </div><aside className="sidebar"><div className="section-heading"><h2>Recent diary</h2><LibraryViewLink href={href('diary')}>View all</LibraryViewLink></div>{activeEvents.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.createdAt.localeCompare(a.createdAt)).slice(0, 4).map(e => <button key={e.id} className="diary-mini" onClick={() => open(() => setDetail(getWork(e.workId)))}><Cover work={getWork(e.workId)} /><span><strong>{getWork(e.workId).title}</strong><span>{e.date || 'Date unknown'}</span><Rating rating={e.rating} /></span></button>)}{!activeEvents.length && <p className="section-empty">{owner ? 'Log an activity to begin your diary.' : 'No published diary entries yet.'}</p>}
+        </div><aside className="sidebar"><div className="section-heading"><h2>Recent diary</h2><LibraryViewLink href={href('diary')}>View all</LibraryViewLink></div>{activeEvents.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.createdAt.localeCompare(a.createdAt)).slice(0, 4).map(e => <button key={e.id} className="diary-mini" onClick={() => showWork(getWork(e.workId))}><Cover work={getWork(e.workId)} /><span><strong>{getWork(e.workId).title}</strong><span>{e.date || 'Date unknown'}</span><Rating rating={e.rating} /></span></button>)}{!activeEvents.length && <p className="section-empty">{owner ? 'Log an activity to begin your diary.' : 'No published diary entries yet.'}</p>}
           {owner && <div className="sidebar-note"><h2>Your workspace</h2><p>{activeRecords.length} titles · {activeEvents.length} diary entries · {activeLists.length} lists</p><LibraryViewLink className="source-link" href={href('settings')}>Manage library <Icon name="arrow" /></LibraryViewLink><p>Manage your Harbor → Trakt connection in Admin. Manual logging is always available.</p></div>}</aside></div>}
 
         {view === 'collection' && <section><div className="view-title"><div><h2>{filters.list ? activeLists.find(l => l.id === filters.list)?.name || 'List' : 'Collection'}</h2><p>{owner ? 'Your titles, your ratings, your order.' : 'Titles selected for sharing.'}</p></div></div>
@@ -199,7 +328,7 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
           <p className="filter-note">Genre counts are for this category before other filters.</p>
           <div className="results-toolbar"><p role="status">{results.total} {results.total === 1 ? 'title' : 'titles'}</p><div className="result-controls"><FieldSelect label="Sort by" value={filters.sort || ''} options={[['', 'Collection order'], ['highest', 'My rating: highest'], ['lowest', 'My rating: lowest'], ['newest', 'Release: newest'], ['oldest', 'Release: oldest'], ['title', 'Title A–Z'], ['updated', 'Recently updated']]} onChange={v => navigateFilter('sort', v)} /><div className="layout-switch"><button aria-pressed={filters.viewMode !== 'list'} onClick={() => navigateFilter('viewMode', '')}>Posters</button><button aria-pressed={filters.viewMode === 'list'} onClick={() => navigateFilter('viewMode', 'list')}>List</button></div></div></div>
           {activeFilterChips.length > 0 && <div className="active-filters">{activeFilterChips.map(([key, label, value]) => <button className="chip" key={key} onClick={() => navigateFilter(key, '')}><span className="sr-only">{label}: </span>{value} <Icon name="close" /></button>)}{activeFilterChips.some(([key]) => key !== 'list') && <LibraryViewLink className="text-button" href={href('collection', { ...(filters.type ? { type: filters.type } : {}), ...(filters.list ? { list: filters.list } : {}) })}>Reset filters</LibraryViewLink>}</div>}
-          {results.works.length ? filters.viewMode === 'list' ? <div>{results.works.map(w => <button className="collection-row" key={w.id} onClick={() => open(() => setDetail(w))}><span className="row-title"><Cover work={w} /><span><strong>{w.title}</strong><span>{w.year || 'Year unknown'}{w.format ? ` · ${w.format}` : ''}{w.genres.length ? ` · ${w.genres.join(', ')}` : ''}</span></span></span><span className="row-status">{statusText(records.get(w.id), w.type)}</span><Rating rating={records.get(w.id)?.rating} /></button>)}</div> : <div className="poster-grid collection-grid">{results.works.map((work, index) => poster(work, index))}</div> : <Empty title={activeRecords.length ? 'No matching titles' : 'Your collection starts here'} text={activeRecords.length ? 'Remove a filter or try another title.' : owner ? 'Find a title or add one manually. Ratings and dates are optional.' : 'No collection records have been published.'} action={owner && !activeRecords.length ? <button className="primary" onClick={() => open(() => setLog('search'))}>Add your first title</button> : null} />}
+          {browseBusy ? <p className="muted" role="status">Loading titles…</p> : results.works.length ? filters.viewMode === 'list' ? <div>{results.works.map(w => <button className="collection-row" key={w.id} onClick={() => showWork(w)}><span className="row-title"><Cover work={w} /><span><strong>{w.title}</strong><span>{w.year || 'Year unknown'}{w.format ? ` · ${w.format}` : ''}{w.genres.length ? ` · ${w.genres.join(', ')}` : ''}</span></span></span><span className="row-status">{statusText(records.get(w.id), w.type)}</span><Rating rating={records.get(w.id)?.rating} /></button>)}</div> : <div className="poster-grid collection-grid">{results.works.map((work, index) => poster(work, index))}</div> : <Empty title={activeRecords.length ? 'No matching titles' : 'Your collection starts here'} text={activeRecords.length ? 'Remove a filter or try another title.' : owner ? 'Find a title or add one manually. Ratings and dates are optional.' : 'No collection records have been published.'} action={owner && !activeRecords.length ? <button className="primary" onClick={() => open(() => setLog('search'))}>Add your first title</button> : null} />}
           {results.pages > 1 && <nav className="pagination" aria-label="Collection pages"><button className="secondary" disabled={results.page === 1} onClick={() => navigateFilter('page', String(results.page - 1))}>Previous</button><span>Page {results.page} of {results.pages}</span><button className="secondary" disabled={results.page === results.pages} onClick={() => navigateFilter('page', String(results.page + 1))}>Next</button></nav>}
         </section>}
 
@@ -209,7 +338,7 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
             <DiaryCategory initial={filters.type || ''} />
             <label className="form-field">From date<input type="date" name="from" defaultValue={filters.from || ''} max={filters.to || undefined} /></label><label className="form-field">Through date<input type="date" name="to" defaultValue={filters.to || ''} min={filters.from || undefined} /></label><button className="secondary">Apply filters</button><LibraryViewLink className="text-button" href={href('diary')}>Reset</LibraryViewLink>
           </form><p className="muted" role="status">{diary.total} diary entries{(filters.from || filters.to) && ' · Undated entries are excluded from date ranges'}</p><div className="diary-list">
-          {diary.events.map(e => <article className="diary-entry" key={e.id}><span className="diary-date">{e.date || 'Undated'}<span>{getWork(e.workId).type === 'games' ? 'Finished' : getWork(e.workId).type === 'comics' ? 'Read' : 'Watched'}</span></span><Cover work={getWork(e.workId)} /><div><button className="diary-title" onClick={() => open(() => setDetail(getWork(e.workId)))}>{getWork(e.workId).title}</button><Rating rating={e.rating} />{e.review && (e.spoiler ? <details><summary>Spoiler review</summary><p>{e.review}</p></details> : <p>{e.review}</p>)}{owner && <p className="muted">{e.visibility === 'public' ? 'Published' : 'Private'}</p>}</div>{owner && <button className="text-button" onClick={() => open(() => setEditingEvent(e))}>Edit</button>}</article>)}
+          {diary.events.map(e => <article className="diary-entry" key={e.id}><span className="diary-date">{e.date || 'Undated'}<span>{getWork(e.workId).type === 'games' ? 'Finished' : getWork(e.workId).type === 'comics' ? 'Read' : 'Watched'}</span></span><Cover work={getWork(e.workId)} /><div><button className="diary-title" onClick={() => showWork(getWork(e.workId))}>{getWork(e.workId).title}</button><Rating rating={e.rating} />{e.review && (e.spoiler ? <details><summary>Spoiler review</summary><p>{e.review}</p></details> : <p>{e.review}</p>)}{owner && <p className="muted">{e.visibility === 'public' ? 'Published' : 'Private'}</p>}</div>{owner && <button className="text-button" onClick={() => open(() => setEditingEvent(e))}>Edit</button>}</article>)}
           {!diary.events.length && <Empty title={activeEvents.length ? 'No matching diary entries' : 'No diary entries yet'} text={activeEvents.length ? 'Try another title, category or date range.' : owner ? 'Log an activity to record a diary event. Changing a collection status alone leaves your diary untouched.' : 'No diary entries have been published.'} />}
           </div>{diary.pages > 1 && <nav className="pagination" aria-label="Diary pages"><button className="secondary" disabled={diary.page === 1} onClick={() => navigateFilter('page', String(diary.page - 1))}>Previous</button><span>Page {diary.page} of {diary.pages}</span><button className="secondary" disabled={diary.page === diary.pages} onClick={() => navigateFilter('page', String(diary.page + 1))}>Next</button></nav>}
         </section>}
@@ -218,13 +347,13 @@ function LibraryAppContent({ initial, configured, catalogs, initialError = '', a
           {activeLists.map(l => <article className="list-row" key={l.id}><LibraryViewLink className="list-preview" href={href('collection', { list: l.id })}><span className="list-strip">{l.workIds.slice(0, 3).map(id => <Cover key={id} work={getWork(id)} />)}</span><span><h3>{l.name}</h3><p>{l.workIds.length} titles{owner ? ` · ${l.visibility}` : ''}</p>{l.description && <p>{l.description}</p>}</span></LibraryViewLink>{owner && <button className="text-button" onClick={() => open(() => setEditingList(l))}>Edit</button>}</article>)}
           {!activeLists.length && <Empty title="No lists yet" text={owner ? 'Create a list, then add titles from their details. Sharing a list keeps your private notes and progress private.' : 'No lists have been published.'} />}
         </section>}
-        {view === 'settings' && owner && <Settings state={state} revision={snapshot.revision} refreshLibrary={refresh} imported={data => { setSnapshot(data); showNotice('Watches imported.'); }} catalogs={catalogs} save={save} busy={busy} openWork={w => open(() => setDetail(w))} repair={w => open(() => setRepair(w))} editEvent={e => open(() => setEditingEvent(e))} editList={l => open(() => setEditingList(l))} />}
+        {view === 'settings' && owner && (fullSnapshot ? <Settings state={state} revision={snapshot.revision} refreshLibrary={refresh} imported={data => { setSnapshot(data); setFullSnapshot(true); setBrowsePages({}); showNotice('Watches imported.'); }} catalogs={catalogs} save={save} busy={busy} openWork={showWork} repair={w => open(() => setRepair(w))} editEvent={e => open(() => setEditingEvent(e))} editList={l => open(() => setEditingList(l))} /> : <p className="muted" role="status">Loading your owner workspace…</p>)}
       </>}
       <footer><span>A personal collection, in your own space.</span><Link href="/library">Public library <Icon name="arrow" /></Link>{owner && <button className="text-button" onClick={async () => { const r = await fetch('/api/library/auth', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' }); if (r.ok) { setSnapshot({ state: emptyState(), revision: 0, owner: false }); setDetail(null); setLog(null); router.replace('/library'); router.refresh(); } else setError('Sign out failed. Please try again.'); }}>Sign out</button>}</footer>
     </main>
     {(busy || notice) && <div className="toast" role="status" aria-live="polite"><span>{busy ? 'Saving…' : notice}</span>{!busy && undo && <button onClick={async () => { if (await save(undo, 'Progress restored.')) setUndo(null); }}>Undo</button>}{!busy && <button aria-label="Dismiss notification" onClick={() => { clearNotice(); setUndo(null); }}><Icon name="close" /></button>}</div>}
-    {owner && roulette && <Modal title="Pick for me" close={() => close(() => setRoulette(false))}><LibraryRoulette state={state} initialCategory={view === 'collection' ? selectedType : undefined} onViewTitle={work => { setRoulette(false); setDetail(work); }} /></Modal>}
-    {detail && <Modal title={detail.title} close={() => close(() => setDetail(null))}><ErrorText value={error} />{error && <button className="secondary" onClick={refresh}>Refresh library</button>}<TitleDetails work={detail} record={records.get(detail.id)} nextFavorite={Math.max(0, ...activeRecords.filter(r => getWork(r.workId).type === detail.type).map(r => r.favorite || 0)) + 1} events={activeEvents.filter(e => e.workId === detail.id)} lists={activeLists} owner={owner} save={save} busy={busy} log={() => { setDetail(null); setLog(detail); }} repair={() => { setDetail(null); setRepair(detail); }} browseGenre={g => { close(() => setDetail(null)); pushLibraryUrl(href('collection', { genre: g }), true); }} /></Modal>}
+    {owner && roulette && <Modal title="Pick for me" close={() => close(() => setRoulette(false))}><LibraryRoulette state={state} initialCategory={view === 'collection' ? selectedType : undefined} onViewTitle={work => { setRoulette(false); showWork(work, true); }} /></Modal>}
+    {detail && <Modal title={detail.title} close={() => { detailRequest.current++; close(() => setDetail(null)); }}><ErrorText value={error} />{error && <button className="secondary" onClick={refresh}>Refresh library</button>}{detailLoading ? <p className="muted" role="status">Loading title details…</p> : detailError ? <ErrorText value={detailError} /> : <TitleDetails work={detail} record={detailRecord || records.get(detail.id)} nextFavorite={Math.max(0, ...activeRecords.filter(r => getWork(r.workId).type === detail.type).map(r => r.favorite || 0)) + 1} events={activeEvents.filter(e => e.workId === detail.id)} lists={activeLists} owner={owner} save={save} busy={busy} log={() => { setDetail(null); setLog(detail); }} repair={() => { setDetail(null); void loadFull().then(latest => setRepair(latest.state.works.find(w => w.id === detail.id) || detail)).catch(e => setError(e instanceof Error ? e.message : 'Unable to load the owner workspace.')); }} browseGenre={g => { close(() => setDetail(null)); pushLibraryUrl(href('collection', { genre: g }), true); }} />}</Modal>}
     {repair && owner && <Modal title="Review title and catalog match" close={() => close(() => setRepair(null))}><ErrorText value={error} />{error && <button className="secondary" onClick={refresh}>Refresh library</button>}<CatalogRepair source={repair} state={state} revision={snapshot.revision} catalogs={catalogs} save={save} busy={busy} done={() => close(() => setRepair(null))} /></Modal>}
     {log && owner && <Modal title={log === 'search' ? 'Add to your library' : log.type === 'games' ? 'Log a finish' : log.type === 'comics' ? 'Log a read' : 'Log a watch'} close={() => close(() => setLog(null))}><ErrorText value={error} />{error && <button className="secondary" onClick={refresh}>Refresh library</button>}<AddForm selected={log === 'search' ? null : log} state={state} catalogs={catalogs} save={save} busy={busy} done={w => { close(() => setLog(null)); if (log === 'search') pushLibraryUrl(href('collection', { type: w.type, sort: 'updated' }), true); }} /></Modal>}
     {editingEvent && owner && <Modal title="Edit diary entry" close={() => close(() => setEditingEvent(null))}><ErrorText value={error} />{error && <button className="secondary" onClick={refresh}>Refresh library</button>}<EventForm event={editingEvent} work={getWork(editingEvent.workId)} save={save} busy={busy} done={() => close(() => setEditingEvent(null))} /></Modal>}
