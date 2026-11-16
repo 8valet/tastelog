@@ -1,11 +1,40 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyCommand, backupSchema, browse, csv, emptyState, exportBackup, publishState, type LibraryState, type Work } from '../lib/library/model.ts';
+import { applyCommand, backupSchema, browse, csv, emptyState, exportBackup, publishState, types, typeNames, type LibraryState, type Work } from '../lib/library/model.ts';
 import { browseDiary, duplicateCandidates, overviewPicks } from '../lib/library/discovery.ts';
 import { pickTitle, plannedTitles } from '../lib/library/roulette.ts';
 const work = (id = 'manual:a', overrides: Partial<Work> = {}): Work => ({ id, type: 'movies', title: 'A film', year: 2020, poster: '', genres: ['Drama'], episodes: null, seasons: null, summary: '', provider: 'manual', providerId: '', sourceUrl: '', ...overrides });
 const save = (s: LibraryState, w = work(), patch = {}, request = crypto.randomUUID()) => applyCommand(s, { op: 'save', work: w, patch }, request);
 const event = { id: 'event:1', workId: 'manual:a', date: null, rating: 4, review: 'Private review', spoiler: false, visibility: 'private', kind: 'watch', episodeFrom: null, episodeTo: null, season: 1 };
+
+test('Manga & Comics works keep optional validated formats across browsing, sharing and backup', () => {
+  assert.deepEqual(types, ['movies', 'tv', 'anime', 'games', 'comics']);
+  assert.equal(typeNames.comics, 'Manga & Comics');
+  let state = emptyState();
+  for (const [index, rawFormat] of ['Manga', 'Manhwa', 'Comics', '  Webtoon  '].entries()) {
+    const format = rawFormat.trim();
+    state = save(state, work(`manual:comic:${index}`, { type: 'comics', format: rawFormat, title: `Reading ${format}` }));
+  }
+  state.records[0].visibility = 'public';
+  assert.deepEqual(browse(state, { type: 'comics' }).works.map(w => w.format), ['Comics', 'Manga', 'Manhwa', 'Webtoon']);
+  assert.deepEqual(publishState(state).works.map(w => w.format), ['Manga']);
+  assert.deepEqual(backupSchema.parse(exportBackup(state)).state, state);
+  assert.equal(backupSchema.safeParse({ ...exportBackup(state), state: { ...state, works: [{ ...state.works[0], format: ' '.repeat(1) }] } }).success, false);
+  assert.equal(backupSchema.safeParse({ ...exportBackup(state), state: { ...state, works: [{ ...state.works[0], format: 'x'.repeat(81) }] } }).success, false);
+  const legacy = structuredClone(exportBackup(state));
+  delete legacy.state.works[0].format;
+  assert.equal(backupSchema.parse(legacy).state.works[0].format, undefined);
+  assert.match(csv(state), /^"Title","Type","Year","Status","My rating","Episodes","Platform","Hours","Visibility","Format"/);
+  assert.match(csv(state), /"Reading Manga","comics","2020","backlog","","0","","","public","Manga"/);
+});
+
+test('metadata edits can clear an optional comic format', () => {
+  const state = save(emptyState(), work('manual:comic:clear', { type: 'comics', format: 'Manhwa' }));
+  const updated = structuredClone(state.works[0]);
+  delete updated.format;
+  const result = applyCommand(state, { op: 'metadata', work: updated }, 'metadata:clear-format');
+  assert.equal(result.works[0].format, undefined);
+});
 
 test('roulette selects only saved, non-deleted planned titles in the chosen categories', () => {
   let state = emptyState();

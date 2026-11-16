@@ -46,5 +46,5 @@ export function rankOverviewPicks(state: LibraryState, type: Work['type']) {
   if (favorites.length) return { label: 'Favorites', records: favorites.slice(0, overviewPickLimit) };
   const lastWatch = new Map<string, string>();
   for (const e of state.events) if (!e.deletedAt && e.date && (!lastWatch.has(e.workId) || lastWatch.get(e.workId)! < e.date)) lastWatch.set(e.workId, e.date);
-  return { label: 'Recently watched / finished', records: records.filter(r => r.status === 'completed').sort((a, b) => (lastWatch.get(b.workId) || '').localeCompare(lastWatch.get(a.workId) || '') || b.updatedAt.localeCompare(a.updatedAt) || a.workId.localeCompare(b.workId)).slice(0, overviewPickLimit) };
+  return { label: type === 'comics' ? 'Recently read' : 'Recently watched / finished', records: records.filter(r => r.status === 'completed').sort((a, b) => (lastWatch.get(b.workId) || '').localeCompare(lastWatch.get(a.workId) || '') || b.updatedAt.localeCompare(a.updatedAt) || a.workId.localeCompare(b.workId)).slice(0, overviewPickLimit) };
 }

@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import * as Select from '@radix-ui/react-select';
+import { workFormats } from '../../../lib/library/model';
 const DialogContainer = createContext<HTMLElement | null>(null);
 const DialogEscapeGuard = createContext<() => void>(() => {});
 export type RatingScale = 5 | 10;
@@ -38,6 +39,16 @@ export function FieldSelect({ label, value, options, onChange, compact = false }
       </Select.Viewport><Select.ScrollDownButton className="select-scroll">Scroll down</Select.ScrollDownButton>
     </Select.Content></Select.Portal>
   </Select.Root></div>;
+}
+export function FormatField({ value, onChange }: { value?: string; onChange: (value: string) => void }) {
+  const builtIn = Boolean(value && (workFormats as readonly string[]).includes(value));
+  const [customMode, setCustomMode] = useState(Boolean(value && !builtIn));
+  const [customValue, setCustomValue] = useState(value && !builtIn ? value : '');
+  const choice = customMode ? 'Custom' : value || '';
+  return <>
+    <FieldSelect label="Format" value={choice} options={[['', 'No format'], ...workFormats.map(format => [format, format] as [string, string]), ['Custom', 'Custom']]} onChange={format => { const custom = format === 'Custom'; setCustomMode(custom); if (custom && !builtIn && value) setCustomValue(value); onChange(custom ? builtIn ? '' : value || '' : format); }} />
+    {choice === 'Custom' && <label className="form-field">Custom format<input aria-label="Custom format" value={customValue} required maxLength={80} onChange={event => { setCustomValue(event.target.value); onChange(event.target.value); }} /></label>}
+  </>;
 }
 export function Modal({ title, description, children, close }: { title: string; description?: string; children: React.ReactNode; close: () => void }) {
   const id = useId(), [container, setContainer] = useState<HTMLDialogElement | null>(null);
@@ -98,6 +109,7 @@ export function ratingFilterLabel(value: string, scale: RatingScale = 5) {
 }
 export const statusOptions: [string, string][] = [['backlog', 'Plan to watch / play'], ['wishlist', 'Wishlist'], ['active', 'Watching / playing'], ['completed', 'Watched / finished'], ['paused', 'Paused'], ['dropped', 'Dropped']];
 export function statusesFor(type?: string): [string, string][] {
+  if (type === 'comics') return [['backlog', 'Plan to read'], ['wishlist', 'Wishlist'], ['active', 'Reading'], ['completed', 'Read'], ['paused', 'Paused'], ['dropped', 'Dropped']];
   return type && type !== 'all' ? [['backlog', type === 'games' ? 'Backlog' : 'Plan to watch'], ['wishlist', 'Wishlist'], ['active', type === 'games' ? 'Playing' : 'Watching'], ['completed', type === 'games' ? 'Played' : 'Watched'], ['paused', 'Paused'], ['dropped', 'Dropped']] : statusOptions;
 }
 

@@ -5,15 +5,16 @@ import { rankOverviewPicks } from './discovery.ts';
 z.config({ jitless: true });
 export class LibraryCommandError extends Error {}
 
-export const types = ['movies', 'tv', 'anime', 'games'] as const;
+export const types = ['movies', 'tv', 'anime', 'games', 'comics'] as const;
 export const statuses = ['backlog', 'wishlist', 'active', 'completed', 'paused', 'dropped'] as const;
-export const typeNames = { movies: 'Movies', tv: 'TV shows', anime: 'Anime', games: 'Games' };
+export const workFormats = ['Manga', 'Manhwa', 'Comics'] as const;
+export const typeNames = { movies: 'Movies', tv: 'TV shows', anime: 'Anime', games: 'Games', comics: 'Manga & Comics' };
 const id = z.string().min(1).max(180).regex(/^[a-zA-Z0-9:_-]+$/);
 const stamp = z.string().datetime();
 const score = z.number().min(.5).max(5).multipleOf(.5).nullable();
 const image = z.string().max(1500).refine(v => !v || /^\/links\//.test(v) || /^\/library\//.test(v) || /^https:\/\//.test(v), 'Use an HTTPS image URL.');
 export const workSchema = z.object({
-  id, type: z.enum(types), title: z.string().trim().min(1).max(500), year: z.number().int().min(1800).max(2200).nullable(),
+  id, type: z.enum(types), title: z.string().trim().min(1).max(500), format: z.string().trim().min(1).max(80).optional(), year: z.number().int().min(1800).max(2200).nullable(),
   poster: image, genres: z.array(z.string().trim().min(1).max(80)).max(30),
   episodes: z.number().int().min(0).max(100000).nullable(), seasons: z.number().int().min(0).max(10000).nullable(),
   summary: z.string().max(10000), provider: z.enum(['manual', 'tmdb', 'mal', 'igdb']), providerId: z.string().max(100),
@@ -117,6 +118,7 @@ export function applyCommand(input: LibraryState, raw: unknown, requestId: strin
       if (work.provider !== command.work.provider || work.providerId !== command.work.providerId) throw new LibraryCommandError('Use catalog matching to change a title’s identity.');
       if (work.provider !== 'manual' && work.type !== command.work.type) throw new LibraryCommandError('Choose the correct catalog to change this category.');
       Object.assign(work, command.work);
+      if (command.work.format === undefined) delete work.format;
       break;
     }
     case 'reconcile': {
@@ -271,8 +273,8 @@ export const backupSchema = z.object({ format: z.enum(['media-library', 'aziz-li
 export function exportBackup(state: LibraryState) { return { format: 'media-library' as const, version: 1 as const, exportedAt: new Date().toISOString(), state }; }
 export function csv(state: LibraryState) {
   const quote = (v: unknown) => '"' + String(v ?? '').replace(/^(?:\s*[=+@\-]|[\t\r\n])/, "'$&").replace(/"/g, '""') + '"';
-  return [['Title', 'Type', 'Year', 'Status', 'My rating', 'Episodes', 'Platform', 'Hours', 'Visibility'], ...state.records.filter(r => !r.deletedAt).map(r => {
+  return [['Title', 'Type', 'Year', 'Status', 'My rating', 'Episodes', 'Platform', 'Hours', 'Visibility', 'Format'], ...state.records.filter(r => !r.deletedAt).map(r => {
     const w = state.works.find(w => w.id === r.workId)!;
-    return [w.title, w.type, w.year, r.status, r.rating, r.episodes, r.platform, r.hours, r.visibility];
+    return [w.title, w.type, w.year, r.status, r.rating, r.episodes, r.platform, r.hours, r.visibility, w.format];
   })].map(row => row.map(quote).join(',')).join('\r\n');
 }
