@@ -19,7 +19,7 @@ Keep a collection, rate titles with half stars, write a diary, organize lists, a
 - Optional TMDB, MyAnimeList, and IGDB catalog search, using your own credentials.
 - Optional Trakt connection with explicit watch-history review and private imports.
 - Full JSON backups and restore, plus collection CSV export.
-- Owner login through Supabase, with separate private and public database documents.
+- Owner login through Supabase, with separate private and public database documents plus transactionally maintained indexed read tables.
 - Keyboard controls, reduced motion, and responsive phone layouts.
 
 Installs start empty. No real collection, account, API credentials, or personal poster mappings are included. The screenshots and demo use a disposable local account with three recognizable sample titles; the ratings and backlog statuses are illustrative. Their artwork is loaded from the relevant catalog image services and is not included in the MIT license.

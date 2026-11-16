@@ -1,7 +1,7 @@
 import 'server-only';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { applyCommand, emptyState, publishState, stateSchema, writeSchema } from './model';
+import { applyCommand, emptyState, publishState, stateSchema, writeSchema, type Filters, type Work, type LibraryRecord } from './model';
 
 export class LibraryError extends Error {
   constructor(message: string, public status = 400) { super(message); }
@@ -34,6 +34,57 @@ export async function readLibrary(required = false) {
   if (error) throw new LibraryError('The library could not be loaded. Check the database setup and try again.', 503);
   return { state: data ? stateSchema.parse(data.document) : emptyState(), revision: owner ? Number(data?.revision ?? 0) : 0, owner };
 }
+
+type BrowsePage = { works: Work[]; total: number; page: number; pages: number; genres: [string, number][]; years: number[] };
+type Preview = { state: ReturnType<typeof emptyState>; revision: number; owner: boolean };
+function indexFailure() {
+  return new LibraryError('The indexed library read model is unavailable. Apply the indexed-read-model database migration first.', 503);
+}
+/**
+ * The initial page never reads library_state.document or library_public.document.
+ * Read-model rows are maintained transactionally by library_save triggers.
+ */
+export async function readLibraryPage(filters: Filters = {}, includeBrowse = false): Promise<{ snapshot: Preview; initialBrowse?: BrowsePage }> {
+  const { client, owner } = await ownerSession();
+  const scope = owner ? 'owner' : 'public';
+  const browseFilters = { ...filters, status: filters.status || (filters.list || !owner ? 'all' : 'completed') };
+  const common = { p_owner: process.env.LIBRARY_OWNER_ID!, p_scope: scope };
+  const [preview, browsing] = await Promise.all([
+    client.rpc('library_read_preview', common),
+    includeBrowse ? client.rpc('library_browse_index', { ...common, p_filters: browseFilters }) : Promise.resolve(null),
+  ]);
+  if (preview.error || (browsing && browsing.error)) throw indexFailure();
+  const snapshot: Preview = {
+    state: preview.data?.state ? stateSchema.parse(preview.data.state) : emptyState(),
+    revision: owner ? Number(preview.data?.revision ?? 0) : 0,
+    owner,
+  };
+  const initialBrowse = browsing ? browsing.data as BrowsePage : undefined;
+  return { snapshot, initialBrowse };
+}
+
+export async function readIndexedBrowse(filters: Filters): Promise<BrowsePage> {
+  const { client, owner } = await ownerSession();
+  const { data, error } = await client.rpc('library_browse_index', {
+    p_owner: process.env.LIBRARY_OWNER_ID!,
+    p_scope: owner ? 'owner' : 'public',
+    p_filters: { ...filters, status: filters.status || (filters.list || !owner ? 'all' : 'completed') },
+  });
+  if (error || !data || !Array.isArray(data.works)) throw indexFailure();
+  return data as BrowsePage;
+}
+
+export async function readIndexedWork(workId: string): Promise<{ work: Work; record: LibraryRecord | null } | null> {
+  const { client, owner } = await ownerSession();
+  const { data, error } = await client.from('library_read_works').select('work,record')
+    .eq('owner_id', process.env.LIBRARY_OWNER_ID!)
+    .eq('scope', owner ? 'owner' : 'public')
+    .eq('work_id', workId)
+    .maybeSingle();
+  if (error) throw indexFailure();
+  return data ? { work: data.work as Work, record: data.record as LibraryRecord | null } : null;
+}
+
 export async function writeLibrary(raw: unknown, trakt?: { generation: string; lease: string }) {
   const input = writeSchema.parse(raw);
   const { client } = await ownerSession(true);

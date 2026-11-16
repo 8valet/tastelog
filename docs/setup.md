@@ -9,8 +9,13 @@ In the Supabase SQL editor, apply these files in order, once each:
 1. `supabase/migrations/202610090001_library.sql`
 2. `supabase/migrations/202610090002_trakt.sql`
 3. `supabase/migrations/202610200001_public_visibility_projection.sql`
+4. `supabase/migrations/202611160001_indexed_read_model.sql`
+5. `supabase/migrations/202611160002_read_model_policy_tuning.sql`
+6. `supabase/migrations/202611160003_preserve_curated_overview.sql`
+7. `supabase/migrations/202611160004_public_preview_no_private_revision.sql`
+8. `supabase/migrations/202611160005_preserve_preview_order.sql`
 
-All three are safe to apply to a new project in that order; the Trakt tables can stay unused. Do not repeatedly run these migrations over existing tables. The third migration removes accidentally retained private fields from older visitor snapshots; it has no personal records to backfill in a new installation.
+Apply all eight in order, once each; the Trakt tables can stay unused. The third migration removes accidentally retained private fields from older visitor snapshots. Migrations 4–8 add and maintain RLS-protected indexed reads, preserve curated overview metadata and the original title/record order, and fix anonymous preview access without reading the private state table. They backfill indexes from existing documents without changing those canonical documents. Do not rerun applied migrations.
 
 Then allowlist the owner, replacing the example with the UUID of the Auth user you created:
 

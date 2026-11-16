@@ -10,7 +10,7 @@ Saves atomically update private state and the public projection, with a revision
 
 Authorization happens in route/server code and independently through database row policies. The app uses the owner session and publishable key, never a service-role key. Supabase verifies the user before owner access. Writes use server validation and same-origin checks.
 
-The document is bounded to 5,000 works/records, 20,000 diary entries, and 1,000 lists. The browser paginates presentation, not database reads. Same-route section/filter navigation reuses the loaded snapshot through the Next-integrated native History API; direct loads, refreshes, writes, catalogs, and Trakt operations use the server.
+The canonical document is bounded to 5,000 works/records, 20,000 diary entries, and 1,000 lists. An additive, RLS-protected read model maintains indexed works, diary events, lists, and overview metadata in the same transaction as canonical saves. PostgreSQL performs collection filtering, sorting, counts, and 24-title pagination. Initial pages read a lightweight preview without loading the canonical JSONB document; full owner snapshots are fetched only when needed for edits, settings, backups, and Trakt operations. Individual title details fetch one work and record. URL-driven browsing caches only requested pages. The preview preserves canonical title and record order for roulette and other UI flows. Further reducing the initial preview would require database-backed aggregates and per-view data loading.
 
 ## Source map
 
@@ -21,7 +21,7 @@ The document is bounded to 5,000 works/records, 20,000 diary entries, and 1,000 
 | Controls and artwork | `controls.tsx`, `cover.tsx` in the library directory |
 | Canonical styles | `library-base.css`, `library-additions.css` |
 | Statistics and roulette | `library-stats.tsx`, `library-roulette.tsx`, `lib/library/roulette.ts` |
-| Model, commands, projection and backups | `lib/library/model.ts` |
+| Model, commands, projection and backups | `lib/library/model.ts`, `lib/library/projection.ts` |
 | Search and review | `lib/library/text.ts`, `discovery.ts`, `catalog-repair.tsx` |
 | Storage/auth/HTTP | `lib/library/server.ts`, `http.ts`, `proxy.ts` |
 | Catalog and Trakt adapters | `lib/library/catalog.ts`, `trakt*.ts` |
